@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Nizam Store - Digital Products by Nizamudheen KC",
+  title: "Nizam Store — Premium Fitness Tracker Excel Sheets | by Nizamudheen KC",
   description:
-    "Premium digital products by Nizamudheen KC. Get the Ultimate Habit Tracker and more tools to transform your productivity and life.",
+    "Track workouts, nutrition, body measurements, sleep & more with beautifully designed Excel spreadsheets. Auto-generated charts, instant download. Starting at ₹149.",
 };
 
 export default function RootLayout({

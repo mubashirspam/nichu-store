@@ -159,8 +159,7 @@ const PRODUCTS: Product[] = [
 ];
 
 // ─── RAZORPAY KEY ────────────────────────────────────────────────
-// Replace with your Razorpay Key ID from https://dashboard.razorpay.com
-const RAZORPAY_KEY_ID = "rzp_test_XXXXXXXXXXXXXXX";
+const RAZORPAY_KEY_ID = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "";
 
 // ─── SVG PREVIEW COMPONENTS ─────────────────────────────────────
 
@@ -345,43 +344,85 @@ export default function StorePage() {
   const [selectedProduct, setSelectedProduct] = useState<Product>(PRODUCTS[0]);
   const [showPreview, setShowPreview] = useState(false);
 
-  const handleBuyNow = (product: Product) => {
+  const handleBuyNow = async (product: Product) => {
     setIsProcessing(true);
 
-    const options: RazorpayOptions = {
-      key: RAZORPAY_KEY_ID,
-      amount: product.price * 100,
-      currency: product.currency,
-      name: "Nizam Store",
-      description: product.name,
-      handler: function (response: RazorpayResponse) {
-        alert(
-          `Payment successful! Payment ID: ${response.razorpay_payment_id}\n\nYou will receive ${product.name} via email shortly.`
-        );
-        setIsProcessing(false);
-      },
-      prefill: {
-        name: "",
-        email: "",
-        contact: "",
-      },
-      theme: {
-        color: "#10b981",
-      },
-      notes: {
-        product: product.name,
-      },
-    };
-
     try {
-      const rzp = new window.Razorpay(options);
-      rzp.on("payment.failed", function () {
-        alert("Payment failed. Please try again.");
-        setIsProcessing(false);
+      const orderResponse = await fetch("/api/razorpay/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: product.price,
+          currency: product.currency,
+          productName: product.name,
+          productId: product.id,
+        }),
       });
+
+      if (!orderResponse.ok) {
+        throw new Error("Failed to create order");
+      }
+
+      const orderData = await orderResponse.json();
+
+      const options: RazorpayOptions = {
+        key: RAZORPAY_KEY_ID,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: "Nizam Store",
+        description: product.name,
+        image: "/favicon.ico",
+        handler: async function (response: RazorpayResponse) {
+          try {
+            const verifyResponse = await fetch("/api/razorpay/verify-payment", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                productName: product.name,
+                customerEmail: "",
+              }),
+            });
+
+            const verifyData = await verifyResponse.json();
+
+            if (verifyData.verified) {
+              window.location.href = `/success?payment_id=${response.razorpay_payment_id}&product=${encodeURIComponent(product.name)}`;
+            } else {
+              window.location.href = "/failed";
+            }
+          } catch (error) {
+            console.error("Verification error:", error);
+            window.location.href = "/failed";
+          }
+        },
+        prefill: {
+          name: "",
+          email: "",
+          contact: "",
+        },
+        theme: {
+          color: "#10b981",
+        },
+        notes: {
+          productName: product.name,
+          productId: product.id,
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      
+      rzp.on("payment.failed", function () {
+        window.location.href = "/failed";
+      });
+
       rzp.open();
-    } catch {
-      alert("Unable to load payment gateway. Please try again.");
+      setIsProcessing(false);
+    } catch (error) {
+      console.error("Payment error:", error);
+      alert("Unable to initiate payment. Please try again.");
       setIsProcessing(false);
     }
   };

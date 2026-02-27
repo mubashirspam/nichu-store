@@ -1,6 +1,6 @@
 # Nizam Store
 
-Digital product store for Nizamudheen KC - selling the Ultimate Habit Tracker and more.
+Digital product store 
 
 ## Live Site
 - **Store:** https://app.marketingnizam.com

@@ -33,6 +33,7 @@ interface RazorpayOptions {
   currency: string;
   name: string;
   description: string;
+  order_id: string;
   image?: string;
   handler: (response: RazorpayResponse) => void;
   prefill?: {
@@ -44,6 +45,9 @@ interface RazorpayOptions {
     color?: string;
   };
   notes?: Record<string, string>;
+  modal?: {
+    ondismiss?: () => void;
+  };
 }
 
 interface RazorpayResponse {
@@ -371,6 +375,7 @@ export default function StorePage() {
         currency: orderData.currency,
         name: "Nizam Store",
         description: product.name,
+        order_id: orderData.orderId,
         image: "/favicon.ico",
         handler: async function (response: RazorpayResponse) {
           try {
@@ -382,20 +387,20 @@ export default function StorePage() {
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
                 productName: product.name,
-                customerEmail: "",
+                productId: product.id,
               }),
             });
 
             const verifyData = await verifyResponse.json();
 
             if (verifyData.verified) {
-              window.location.href = `/success?payment_id=${response.razorpay_payment_id}&product=${encodeURIComponent(product.name)}`;
+              window.location.href = `/success/?payment_id=${response.razorpay_payment_id}&product=${encodeURIComponent(product.name)}&product_id=${product.id}`;
             } else {
-              window.location.href = "/failed";
+              window.location.href = "/failed/";
             }
           } catch (error) {
             console.error("Verification error:", error);
-            window.location.href = "/failed";
+            window.location.href = "/failed/";
           }
         },
         prefill: {
@@ -410,16 +415,21 @@ export default function StorePage() {
           productName: product.name,
           productId: product.id,
         },
+        modal: {
+          ondismiss: () => {
+            setIsProcessing(false);
+          },
+        },
       };
 
       const rzp = new window.Razorpay(options);
-      
+
       rzp.on("payment.failed", function () {
-        window.location.href = "/failed";
+        setIsProcessing(false);
+        window.location.href = "/failed/";
       });
 
       rzp.open();
-      setIsProcessing(false);
     } catch (error) {
       console.error("Payment error:", error);
       alert("Unable to initiate payment. Please try again.");

@@ -1,0 +1,147 @@
+"use client";
+
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import type { User } from "@supabase/supabase-js";
+
+interface Profile {
+  id: string;
+  email: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  role: string;
+}
+
+interface AuthContextType {
+  user: User | null;
+  profile: Profile | null;
+  loading: boolean;
+  signInWithGoogle: () => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<{ error: string | null }>;
+  signUpWithEmail: (email: string, password: string, fullName: string) => Promise<{ error: string | null }>;
+  signOut: () => Promise<void>;
+  isAdmin: boolean;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+  
+  // Skip Supabase initialization if env vars are not configured (build time)
+  const supabase = typeof window !== 'undefined' && 
+    process.env.NEXT_PUBLIC_SUPABASE_URL && 
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY 
+    ? createClient() 
+    : null;
+
+  const fetchProfile = async (userId: string) => {
+    if (!supabase) return;
+    const { data } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .single();
+    setProfile(data);
+  };
+
+  useEffect(() => {
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+      if (user) {
+        await fetchProfile(user.id);
+      }
+      setLoading(false);
+    };
+
+    getUser();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
+        if (currentUser) {
+          await fetchProfile(currentUser.id);
+        } else {
+          setProfile(null);
+        }
+        setLoading(false);
+      }
+    );
+
+    return () => subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const signInWithGoogle = async () => {
+    if (!supabase) return;
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+  };
+
+  const signInWithEmail = async (email: string, password: string) => {
+    if (!supabase) return { error: "Supabase not configured" };
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    return { error: error?.message ?? null };
+  };
+
+  const signUpWithEmail = async (email: string, password: string, fullName: string) => {
+    if (!supabase) return { error: "Supabase not configured" };
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { full_name: fullName },
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+    return { error: error?.message ?? null };
+  };
+
+  const signOut = async () => {
+    if (!supabase) return;
+    await supabase.auth.signOut();
+    setUser(null);
+    setProfile(null);
+  };
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        profile,
+        loading,
+        signInWithGoogle,
+        signInWithEmail,
+        signUpWithEmail,
+        signOut,
+        isAdmin: profile?.role === "admin",
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
+}

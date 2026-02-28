@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   CheckCircle,
@@ -16,8 +16,41 @@ import {
   Eye,
   X,
   Dumbbell,
+  TrendingUp,
+  Apple,
+  Ruler,
+  User,
+  LogOut,
+  Package,
+  Plus,
+  Settings,
 } from "lucide-react";
-import { PRODUCTS, type Product } from "@/config/products.config";
+import { useAuth } from "@/contexts/AuthContext";
+import { useCart } from "@/contexts/CartContext";
+import LoginModal from "@/components/auth/LoginModal";
+import Link from "next/link";
+
+interface Product {
+  id: string;
+  name: string;
+  short_name: string;
+  price: number;
+  original_price: number;
+  currency: string;
+  description: string;
+  features: string[];
+  icon_name: string;
+  color: string;
+  badge: string | null;
+  file_url: string | null;
+}
+
+const iconMap: Record<string, React.ReactNode> = {
+  Dumbbell: <Dumbbell size={28} />,
+  TrendingUp: <TrendingUp size={28} />,
+  Apple: <Apple size={28} />,
+  Ruler: <Ruler size={28} />,
+};
 
 declare global {
   interface Window {
@@ -242,103 +275,70 @@ const colorMap: Record<string, { bg: string; text: string; border: string; light
 
 export default function StorePage() {
   const [isProcessing, setIsProcessing] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<Product>(PRODUCTS[0]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const { user, profile, signOut, isAdmin } = useAuth();
+  const { addToCart, isInCart, itemCount } = useCart();
 
-  const handleBuyNow = async (product: Product) => {
-    setIsProcessing(true);
-
-    try {
-      const orderResponse = await fetch("/api/razorpay/create-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: product.price,
-          currency: product.currency,
-          productName: product.name,
-          productId: product.id,
-        }),
-      });
-
-      if (!orderResponse.ok) {
-        throw new Error("Failed to create order");
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const res = await fetch("/api/products");
+        const data = await res.json();
+        if (Array.isArray(data)) setProducts(data);
+      } catch (err) {
+        console.error("Failed to fetch products:", err);
+      } finally {
+        setLoading(false);
       }
+    };
+    fetchProducts();
+  }, []);
 
-      const orderData = await orderResponse.json();
-
-      const options: RazorpayOptions = {
-        key: RAZORPAY_KEY_ID,
-        amount: orderData.amount,
-        currency: orderData.currency,
-        name: "Nizam Store",
-        description: product.name,
-        order_id: orderData.orderId,
-        image: "/favicon.ico",
-        handler: async function (response: RazorpayResponse) {
-          try {
-            const verifyResponse = await fetch("/api/razorpay/verify-payment", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-                productName: product.name,
-                productId: product.id,
-              }),
-            });
-
-            const verifyData = await verifyResponse.json();
-
-            if (verifyData.verified) {
-              window.location.href = `/success/?payment_id=${response.razorpay_payment_id}&product=${encodeURIComponent(product.name)}&product_id=${product.id}`;
-            } else {
-              window.location.href = "/failed/";
-            }
-          } catch (error) {
-            console.error("Verification error:", error);
-            window.location.href = "/failed/";
-          }
-        },
-        prefill: {
-          name: "",
-          email: "",
-          contact: "",
-        },
-        theme: {
-          color: "#10b981",
-        },
-        notes: {
-          productName: product.name,
-          productId: product.id,
-        },
-        modal: {
-          ondismiss: () => {
-            setIsProcessing(false);
-          },
-        },
-      };
-
-      const rzp = new window.Razorpay(options);
-
-      rzp.on("payment.failed", function () {
-        setIsProcessing(false);
-        window.location.href = "/failed/";
-      });
-
-      rzp.open();
-    } catch (error) {
-      console.error("Payment error:", error);
-      alert("Unable to initiate payment. Please try again.");
-      setIsProcessing(false);
+  const handleAddToCart = async (product: Product) => {
+    if (!user) {
+      setShowLogin(true);
+      return;
     }
+    await addToCart(product.id);
   };
 
-  const mainProduct = PRODUCTS[0];
-  const otherProducts = PRODUCTS.slice(1);
+  const handleBuyNow = async (product: Product) => {
+    if (!user) {
+      setShowLogin(true);
+      return;
+    }
+
+    // Add to cart first, then redirect to cart for checkout
+    if (!isInCart(product.id)) {
+      await addToCart(product.id);
+    }
+    window.location.href = "/cart";
+  };
+
+  const mainProduct = products[0] || null;
+  const otherProducts = products.slice(1);
+
+  // Show loading state during initial render/build
+  if (loading || !mainProduct) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading products...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white text-gray-900">
+      <LoginModal isOpen={showLogin} onClose={() => setShowLogin(false)} />
+
       {/* Navigation */}
       <nav className="fixed top-0 w-full bg-white/80 backdrop-blur-lg z-50 border-b border-gray-100 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-4">
@@ -361,13 +361,59 @@ export default function StorePage() {
               <a href="#faq" className="hidden md:block text-gray-600 hover:text-emerald-600 transition-colors text-sm font-medium">
                 FAQ
               </a>
-              <button
-                onClick={() => handleBuyNow(mainProduct)}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-lg font-semibold text-sm flex items-center gap-2 transition-all duration-200 shadow-sm"
-              >
-                <ShoppingCart size={16} />
-                <span className="hidden sm:inline">Buy Now</span>
-              </button>
+
+              {/* Cart Button */}
+              <Link href="/cart" className="relative text-gray-600 hover:text-emerald-600 transition-colors">
+                <ShoppingCart size={20} />
+                {itemCount > 0 && (
+                  <span className="absolute -top-2 -right-2 w-5 h-5 bg-emerald-600 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                    {itemCount}
+                  </span>
+                )}
+              </Link>
+
+              {/* Auth */}
+              {user ? (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowUserMenu(!showUserMenu)}
+                    className="flex items-center gap-2 text-gray-600 hover:text-emerald-600 transition-colors text-sm font-medium"
+                  >
+                    <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center">
+                      <User size={16} className="text-emerald-600" />
+                    </div>
+                  </button>
+                  {showUserMenu && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-xl py-2 z-50">
+                      <div className="px-4 py-2 border-b border-gray-100">
+                        <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                      </div>
+                      <Link href="/orders" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setShowUserMenu(false)}>
+                        <Package size={14} />
+                        My Orders
+                      </Link>
+                      {isAdmin && (
+                        <Link href="/admin" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setShowUserMenu(false)}>
+                          <Settings size={14} />
+                          Admin Dashboard
+                        </Link>
+                      )}
+                      <button onClick={() => { signOut(); setShowUserMenu(false); }} className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full">
+                        <LogOut size={14} />
+                        Sign Out
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowLogin(true)}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-lg font-semibold text-sm flex items-center gap-2 transition-all duration-200 shadow-sm"
+                >
+                  <User size={16} />
+                  <span className="hidden sm:inline">Sign In</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -405,19 +451,21 @@ export default function StorePage() {
 
                 <div className="flex items-center gap-4 mb-8">
                   <span className="text-4xl font-extrabold text-gray-900">
-                    ₹{mainProduct.price}
+                    ₹{mainProduct?.price}
                   </span>
                   <span className="text-xl text-gray-400 line-through">
-                    ₹{mainProduct.originalPrice}
+                    ₹{mainProduct?.original_price}
                   </span>
-                  <span className="bg-red-100 text-red-600 px-3 py-1 rounded-full text-sm font-semibold">
-                    {Math.round(
-                      ((mainProduct.originalPrice - mainProduct.price) /
-                        mainProduct.originalPrice) *
-                        100
-                    )}
-                    % OFF
-                  </span>
+                  {mainProduct && (
+                    <span className="bg-red-100 text-red-600 px-3 py-1 rounded-full text-sm font-semibold">
+                      {Math.round(
+                        ((mainProduct.original_price - mainProduct.price) /
+                          mainProduct.original_price) *
+                          100
+                      )}
+                      % OFF
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap gap-3 mb-8">
@@ -528,7 +576,7 @@ export default function StorePage() {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {PRODUCTS.map((product, idx) => {
+            {products.map((product, idx) => {
               const colors = colorMap[product.color];
               return (
                 <motion.div
@@ -546,15 +594,15 @@ export default function StorePage() {
                   )}
 
                   <div className={`w-14 h-14 ${colors.light} rounded-xl flex items-center justify-center mb-4 ${colors.text}`}>
-                    {product.icon}
+                    {iconMap[product.icon_name] || <Dumbbell size={28} />}
                   </div>
 
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">{product.shortName}</h3>
+                  <h3 className="text-lg font-bold text-gray-900 mb-2">{product.short_name}</h3>
                   <p className="text-gray-500 text-sm mb-4 line-clamp-2">{product.description}</p>
 
                   <div className="flex items-baseline gap-2 mb-4">
                     <span className="text-2xl font-extrabold text-gray-900">₹{product.price}</span>
-                    <span className="text-sm text-gray-400 line-through">₹{product.originalPrice}</span>
+                    <span className="text-sm text-gray-400 line-through">₹{product.original_price}</span>
                   </div>
 
                   <ul className="space-y-2 mb-6">
@@ -566,14 +614,19 @@ export default function StorePage() {
                     ))}
                   </ul>
 
-                  <button
-                    onClick={() => handleBuyNow(product)}
-                    disabled={isProcessing}
-                    className={`w-full ${colors.btn} text-white py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-50`}
-                  >
-                    <ShoppingCart size={16} />
-                    Buy Now
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleAddToCart(product)}
+                      disabled={isInCart(product.id)}
+                      className={`flex-1 ${isInCart(product.id) ? 'bg-gray-200 text-gray-600' : colors.btn + ' text-white'} py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-70`}
+                    >
+                      {isInCart(product.id) ? (
+                        <><CheckCircle size={16} /> In Cart</>
+                      ) : (
+                        <><Plus size={16} /> Add to Cart</>
+                      )}
+                    </button>
+                  </div>
                 </motion.div>
               );
             })}
@@ -785,13 +838,13 @@ export default function StorePage() {
             </p>
 
             <div className="flex items-center justify-center gap-4 mb-8">
-              <span className="text-4xl font-extrabold text-white">₹{mainProduct.price}</span>
-              <span className="text-xl text-emerald-200 line-through">₹{mainProduct.originalPrice}</span>
+              <span className="text-4xl font-extrabold text-white">₹{mainProduct?.price}</span>
+              <span className="text-xl text-emerald-200 line-through">₹{mainProduct?.original_price}</span>
             </div>
 
             <button
-              onClick={() => handleBuyNow(mainProduct)}
-              disabled={isProcessing}
+              onClick={() => mainProduct && handleBuyNow(mainProduct)}
+              disabled={isProcessing || !mainProduct}
               className="bg-white text-emerald-700 hover:bg-emerald-50 px-10 py-4 rounded-xl font-bold text-lg inline-flex items-center gap-3 transition-all duration-200 shadow-xl disabled:opacity-50"
             >
               {isProcessing ? "Processing..." : (
@@ -850,7 +903,7 @@ export default function StorePage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-gray-900">{selectedProduct.name} — Preview</h3>
+              <h3 className="text-xl font-bold text-gray-900">{selectedProduct?.name} — Preview</h3>
               <button onClick={() => setShowPreview(false)} className="text-gray-400 hover:text-gray-600 p-1">
                 <X size={24} />
               </button>
@@ -862,11 +915,11 @@ export default function StorePage() {
             </div>
             <div className="mt-6 flex gap-3">
               <button
-                onClick={() => { setShowPreview(false); handleBuyNow(selectedProduct); }}
+                onClick={() => { setShowPreview(false); if (selectedProduct) handleBuyNow(selectedProduct); }}
                 className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
               >
                 <ShoppingCart size={18} />
-                Buy Now — ₹{selectedProduct.price}
+                Buy Now — ₹{selectedProduct?.price}
               </button>
               <button onClick={() => setShowPreview(false)} className="px-6 py-3 border border-gray-200 rounded-xl text-gray-600 font-medium hover:bg-gray-50">
                 Close

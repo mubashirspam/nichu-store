@@ -1,8 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useRef, useMemo, useCallback } from "react";
+import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { User, SupabaseClient } from "@supabase/supabase-js";
+import type { User } from "@supabase/supabase-js";
 
 interface Profile {
   id: string;
@@ -26,27 +26,11 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-function getSupabase(): SupabaseClient | null {
-  if (
-    typeof window === "undefined" ||
-    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  ) {
-    return null;
-  }
-  return createClient();
-}
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const supabaseRef = useRef<SupabaseClient | null>(null);
-
-  if (!supabaseRef.current) {
-    supabaseRef.current = getSupabase();
-  }
-  const supabase = supabaseRef.current;
+  const supabase = typeof window !== "undefined" ? createClient() : null;
 
   const fetchProfile = useCallback(async (userId: string) => {
     if (!supabase) return;
@@ -76,7 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     getUser();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (_event: string, session: { user: User } | null) => {
         const currentUser = session?.user ?? null;
         setUser(currentUser);
         if (currentUser) {
@@ -133,6 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);
+    window.location.href = "/";
   }, [supabase]);
 
   const value = useMemo(() => ({

@@ -1,8 +1,9 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "./AuthContext";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 interface CartItem {
   id: string;
@@ -35,17 +36,27 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
+function getSupabase(): SupabaseClient | null {
+  if (
+    typeof window === "undefined" ||
+    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  ) {
+    return null;
+  }
+  return createClient();
+}
+
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
-  
-  // Skip Supabase initialization if env vars are not configured (build time)
-  const supabase = typeof window !== 'undefined' && 
-    process.env.NEXT_PUBLIC_SUPABASE_URL && 
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY 
-    ? createClient() 
-    : null;
+  const supabaseRef = useRef<SupabaseClient | null>(null);
+
+  if (!supabaseRef.current) {
+    supabaseRef.current = getSupabase();
+  }
+  const supabase = supabaseRef.current;
 
   const refreshCart = useCallback(async () => {
     if (!user || !supabase) {
@@ -88,10 +99,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     refreshCart();
   }, [refreshCart]);
 
-  const addToCart = async (productId: string) => {
+  const addToCart = useCallback(async (productId: string) => {
     if (!user || !supabase) return;
     const existing = items.find((item) => item.product_id === productId);
-    if (existing) return; // Digital products: only 1 allowed
+    if (existing) return;
 
     const { error } = await supabase.from("cart_items").insert({
       user_id: user.id,
@@ -102,9 +113,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     if (!error) {
       await refreshCart();
     }
-  };
+  }, [user, supabase, items, refreshCart]);
 
-  const removeFromCart = async (cartItemId: string) => {
+  const removeFromCart = useCallback(async (cartItemId: string) => {
     if (!user || !supabase) return;
     const { error } = await supabase
       .from("cart_items")
@@ -115,35 +126,35 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     if (!error) {
       await refreshCart();
     }
-  };
+  }, [user, supabase, refreshCart]);
 
-  const clearCart = async () => {
+  const clearCart = useCallback(async () => {
     if (!user || !supabase) return;
     await supabase.from("cart_items").delete().eq("user_id", user.id);
     setItems([]);
-  };
+  }, [user, supabase]);
 
-  const isInCart = (productId: string) => {
+  const isInCart = useCallback((productId: string) => {
     return items.some((item) => item.product_id === productId);
-  };
+  }, [items]);
 
   const itemCount = items.length;
   const totalAmount = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
 
+  const value = useMemo(() => ({
+    items,
+    itemCount,
+    totalAmount,
+    loading,
+    addToCart,
+    removeFromCart,
+    clearCart,
+    refreshCart,
+    isInCart,
+  }), [items, itemCount, totalAmount, loading, addToCart, removeFromCart, clearCart, refreshCart, isInCart]);
+
   return (
-    <CartContext.Provider
-      value={{
-        items,
-        itemCount,
-        totalAmount,
-        loading,
-        addToCart,
-        removeFromCart,
-        clearCart,
-        refreshCart,
-        isInCart,
-      }}
-    >
+    <CartContext.Provider value={value}>
       {children}
     </CartContext.Provider>
   );

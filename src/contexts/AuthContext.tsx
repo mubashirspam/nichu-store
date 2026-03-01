@@ -6,6 +6,16 @@ import type { User, SupabaseClient } from "@supabase/supabase-js";
 
 const LOG_PREFIX = "[🔐 Auth]";
 
+// Helper: wrap a promise with a timeout so it never hangs forever
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+    ),
+  ]);
+}
+
 interface Profile {
   id: string;
   email: string;
@@ -33,6 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const supabaseRef = useRef<SupabaseClient | null>(null);
+  const signingOut = useRef(false);
 
   if (typeof window !== "undefined" && !supabaseRef.current) {
     supabaseRef.current = createClient();
@@ -46,17 +57,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     console.log(LOG_PREFIX, "Fetching profile for user:", userId);
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
-    if (error) {
-      console.error(LOG_PREFIX, "fetchProfile error:", error.message);
-    } else {
-      console.log(LOG_PREFIX, "Profile loaded:", data?.email, "role:", data?.role);
+    try {
+      const { data, error } = await withTimeout(
+        supabase.from("profiles").select("*").eq("id", userId).single(),
+        10000,
+        "fetchProfile"
+      );
+      if (error) {
+        console.error(LOG_PREFIX, "fetchProfile error:", error.message);
+      } else {
+        console.log(LOG_PREFIX, "Profile loaded:", data?.email, "role:", data?.role);
+      }
+      setProfile(data);
+    } catch (err: any) {
+      console.error(LOG_PREFIX, "fetchProfile failed:", err.message);
+      setProfile(null);
     }
-    setProfile(data);
   }, [supabase]);
 
   useEffect(() => {
@@ -69,7 +85,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const getUser = async () => {
       console.log(LOG_PREFIX, "Getting current user...");
       try {
-        const { data: { user: u }, error } = await supabase.auth.getUser();
+        const { data: { user: u }, error } = await withTimeout(
+          supabase.auth.getUser(),
+          10000,
+          "getUser"
+        );
         if (error) {
           console.error(LOG_PREFIX, "getUser error:", error.message);
         }
@@ -78,8 +98,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (u) {
           await fetchProfile(u.id);
         }
-      } catch (err) {
-        console.error(LOG_PREFIX, "getUser exception:", err);
+      } catch (err: any) {
+        console.error(LOG_PREFIX, "getUser failed:", err.message);
+        setUser(null);
       }
       setLoading(false);
       console.log(LOG_PREFIX, "Auth init complete, loading=false");
@@ -129,16 +150,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error: "Supabase not configured" };
     }
     console.log(LOG_PREFIX, "Signing in with email:", email);
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) {
-      console.error(LOG_PREFIX, "Email sign in error:", error.message);
-    } else {
-      console.log(LOG_PREFIX, "Email sign in successful");
+    try {
+      const { error } = await withTimeout(
+        supabase.auth.signInWithPassword({ email, password }),
+        10000,
+        "signInWithEmail"
+      );
+      if (error) {
+        console.error(LOG_PREFIX, "Email sign in error:", error.message);
+      } else {
+        console.log(LOG_PREFIX, "Email sign in successful");
+      }
+      return { error: error?.message ?? null };
+    } catch (err: any) {
+      console.error(LOG_PREFIX, "signInWithEmail failed:", err.message);
+      return { error: err.message };
     }
-    return { error: error?.message ?? null };
   }, [supabase]);
 
   const signUpWithEmail = useCallback(async (email: string, password: string, fullName: string) => {
@@ -147,36 +174,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error: "Supabase not configured" };
     }
     console.log(LOG_PREFIX, "Signing up with email:", email);
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: fullName },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-    if (error) {
-      console.error(LOG_PREFIX, "Sign up error:", error.message);
-    } else {
-      console.log(LOG_PREFIX, "Sign up successful");
+    try {
+      const { error } = await withTimeout(
+        supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { full_name: fullName },
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+          },
+        }),
+        10000,
+        "signUpWithEmail"
+      );
+      if (error) {
+        console.error(LOG_PREFIX, "Sign up error:", error.message);
+      } else {
+        console.log(LOG_PREFIX, "Sign up successful");
+      }
+      return { error: error?.message ?? null };
+    } catch (err: any) {
+      console.error(LOG_PREFIX, "signUpWithEmail failed:", err.message);
+      return { error: err.message };
     }
-    return { error: error?.message ?? null };
   }, [supabase]);
 
   const handleSignOut = useCallback(async () => {
+    if (signingOut.current) {
+      console.log(LOG_PREFIX, "Sign out already in progress, skipping");
+      return;
+    }
     if (!supabase) {
       console.error(LOG_PREFIX, "handleSignOut: supabase is null");
       return;
     }
+    signingOut.current = true;
     console.log(LOG_PREFIX, "Signing out...");
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error(LOG_PREFIX, "Sign out error:", error.message);
-    } else {
-      console.log(LOG_PREFIX, "Sign out successful, redirecting to /");
+    try {
+      const { error } = await withTimeout(
+        supabase.auth.signOut(),
+        5000,
+        "signOut"
+      );
+      if (error) {
+        console.error(LOG_PREFIX, "Sign out error:", error.message);
+      } else {
+        console.log(LOG_PREFIX, "Sign out successful");
+      }
+    } catch (err: any) {
+      console.error(LOG_PREFIX, "Sign out timed out or failed:", err.message, "— forcing cleanup");
     }
+    // Always clean up, even if signOut hangs or fails
     setUser(null);
     setProfile(null);
+    signingOut.current = false;
     window.location.href = "/";
   }, [supabase]);
 

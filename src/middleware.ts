@@ -38,6 +38,8 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  console.log(`[🛡️ Middleware] ${request.nextUrl.pathname} — user: ${user?.email || "null"}`);
+
   // Protected routes that require authentication
   const protectedPaths = ["/cart", "/orders", "/checkout"];
   const isProtectedPath = protectedPaths.some((path) =>
@@ -45,6 +47,7 @@ export async function middleware(request: NextRequest) {
   );
 
   if (isProtectedPath && !user) {
+    console.log(`[🛡️ Middleware] BLOCKED: ${request.nextUrl.pathname} — redirecting to /login`);
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("redirect", request.nextUrl.pathname);

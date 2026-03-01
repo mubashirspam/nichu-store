@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/client";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { useAuth } from "./AuthContext";
 
+const LOG_PREFIX = "[🛒 Cart]";
+
 interface CartItem {
   id: string;
   product_id: string;
@@ -44,14 +46,22 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   if (typeof window !== "undefined" && !supabaseRef.current) {
     supabaseRef.current = createClient();
+    console.log(LOG_PREFIX, "Supabase client initialized");
   }
   const supabase = supabaseRef.current;
 
   const refreshCart = useCallback(async () => {
-    if (!user || !supabase) {
+    if (!user) {
+      console.log(LOG_PREFIX, "refreshCart: no user, clearing cart");
       setItems([]);
       return;
     }
+    if (!supabase) {
+      console.warn(LOG_PREFIX, "refreshCart: supabase is null");
+      setItems([]);
+      return;
+    }
+    console.log(LOG_PREFIX, "Refreshing cart for user:", user.email, `(${user.id})`);
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -66,7 +76,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         `)
         .eq("user_id", user.id);
 
-      if (!error && data) {
+      if (error) {
+        console.error(LOG_PREFIX, "refreshCart error:", error.message, error.code);
+      } else if (data) {
         const mapped = data
           .filter((item: any) => item.product !== null)
           .map((item: any) => ({
@@ -75,10 +87,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             quantity: item.quantity,
             product: item.product,
           }));
+        console.log(LOG_PREFIX, "Cart loaded:", mapped.length, "items");
         setItems(mapped);
       }
     } catch (err) {
-      console.error("Error fetching cart:", err);
+      console.error(LOG_PREFIX, "refreshCart exception:", err);
     } finally {
       setLoading(false);
     }
@@ -89,36 +102,61 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [refreshCart]);
 
   const addToCart = useCallback(async (productId: string) => {
-    if (!user || !supabase) return;
+    if (!user) {
+      console.warn(LOG_PREFIX, "addToCart: no user — user must sign in first");
+      return;
+    }
+    if (!supabase) {
+      console.error(LOG_PREFIX, "addToCart: supabase is null");
+      return;
+    }
     const existing = items.find((item) => item.product_id === productId);
-    if (existing) return;
+    if (existing) {
+      console.log(LOG_PREFIX, "addToCart: product already in cart:", productId);
+      return;
+    }
 
+    console.log(LOG_PREFIX, "Adding to cart:", productId, "for user:", user.email);
     const { error } = await supabase.from("cart_items").insert({
       user_id: user.id,
       product_id: productId,
       quantity: 1,
     });
 
-    if (!error) {
+    if (error) {
+      console.error(LOG_PREFIX, "addToCart error:", error.message, error.code);
+    } else {
+      console.log(LOG_PREFIX, "addToCart success, refreshing...");
       await refreshCart();
     }
   }, [user, supabase, items, refreshCart]);
 
   const removeFromCart = useCallback(async (cartItemId: string) => {
-    if (!user || !supabase) return;
+    if (!user || !supabase) {
+      console.warn(LOG_PREFIX, "removeFromCart: no user or supabase");
+      return;
+    }
+    console.log(LOG_PREFIX, "Removing from cart:", cartItemId);
     const { error } = await supabase
       .from("cart_items")
       .delete()
       .eq("id", cartItemId)
       .eq("user_id", user.id);
 
-    if (!error) {
+    if (error) {
+      console.error(LOG_PREFIX, "removeFromCart error:", error.message);
+    } else {
+      console.log(LOG_PREFIX, "removeFromCart success, refreshing...");
       await refreshCart();
     }
   }, [user, supabase, refreshCart]);
 
   const clearCart = useCallback(async () => {
-    if (!user || !supabase) return;
+    if (!user || !supabase) {
+      console.warn(LOG_PREFIX, "clearCart: no user or supabase");
+      return;
+    }
+    console.log(LOG_PREFIX, "Clearing cart for user:", user.email);
     await supabase.from("cart_items").delete().eq("user_id", user.id);
     setItems([]);
   }, [user, supabase]);

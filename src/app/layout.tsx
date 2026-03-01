@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
@@ -28,9 +29,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <head>
-        <script src="https://checkout.razorpay.com/v1/checkout.js" async />
-      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
@@ -41,7 +39,12 @@ export default function RootLayout({
             </CartProvider>
           </ProductProvider>
         </AuthProvider>
+        <Script
+          src="https://checkout.razorpay.com/v1/checkout.js"
+          strategy="afterInteractive"
+        />
       </body>
     </html>
   );
 }
+

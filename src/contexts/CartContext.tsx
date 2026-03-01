@@ -1,7 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { useAuth } from "./AuthContext";
 
 interface CartItem {
@@ -39,7 +40,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
-  const supabase = typeof window !== "undefined" ? createClient() : null;
+  const supabaseRef = useRef<SupabaseClient | null>(null);
+
+  if (typeof window !== "undefined" && !supabaseRef.current) {
+    supabaseRef.current = createClient();
+  }
+  const supabase = supabaseRef.current;
 
   const refreshCart = useCallback(async () => {
     if (!user || !supabase) {

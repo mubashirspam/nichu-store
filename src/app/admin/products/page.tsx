@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from "react";
 import { Plus, Pencil, Trash2, Package, Upload } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { v4 as uuidv4 } from "uuid";
 
 interface Product {
   id: string;
@@ -83,32 +82,37 @@ export default function AdminProductsPage() {
     setSaving(true);
     setUploadProgress("Preparing to save...");
 
-    let finalFileUrl = form.file_url;
+    let finalFilePath = form.file_url;
 
+    // Upload file via the secure server-side API
     if (selectedFile) {
-      setUploadProgress("Uploading file...");
-      const fileExt = selectedFile.name.split(".").pop();
-      const fileName = `${uuidv4()}.${fileExt}`;
-      const filePath = `products/${fileName}`;
+      setUploadProgress("Uploading file to secure storage...");
+      const formData = new FormData();
+      formData.append("file", selectedFile);
 
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("products")
-        .upload(filePath, selectedFile, {
-          cacheControl: "3600",
-          upsert: false,
+      try {
+        const uploadRes = await fetch("/api/admin/upload", {
+          method: "POST",
+          body: formData,
         });
 
-      if (uploadError) {
-        console.error("File upload error:", uploadError);
-        alert("Failed to upload file. Please check if the 'products' bucket exists and is publicly accessible.");
+        const uploadResult = await uploadRes.json();
+
+        if (!uploadRes.ok || !uploadResult.success) {
+          alert(`Upload failed: ${uploadResult.error || "Unknown error"}`);
+          setSaving(false);
+          setUploadProgress("");
+          return;
+        }
+
+        finalFilePath = uploadResult.filePath;
+        setUploadProgress("File uploaded successfully!");
+      } catch (err) {
+        console.error("Upload error:", err);
+        alert("Failed to upload file. Please try again.");
         setSaving(false);
         setUploadProgress("");
         return;
-      }
-
-      if (uploadData) {
-        const { data: { publicUrl } } = supabase.storage.from("products").getPublicUrl(filePath);
-        finalFileUrl = publicUrl;
       }
     }
 
@@ -126,7 +130,7 @@ export default function AdminProductsPage() {
       icon_name: form.icon_name,
       color: form.color,
       badge: form.badge || null,
-      file_url: finalFileUrl || null,
+      file_url: finalFilePath || null,
       is_active: form.is_active,
     };
 

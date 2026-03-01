@@ -140,8 +140,8 @@ export default function OrdersPage() {
                           <p className={`text-xs ${d ? "text-gray-500" : "text-gray-400"}`}>₹{item.price}</p>
                         </div>
                         {order.status === "completed" && item.file_url && (
-                          <a href={item.file_url} download
-                            className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 shadow-lg shadow-violet-500/25 transition-all">
+                          <a href={`/api/downloads?orderItemId=${item.id}`} target="_blank" rel="noopener noreferrer"
+                            className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 shadow-lg shadow-violet-500/25 transition-all hover:from-violet-700 hover:to-indigo-700">
                             <Download size={14} /> Download
                           </a>
                         )}

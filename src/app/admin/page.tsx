@@ -38,7 +38,7 @@ export default function AdminDashboard() {
       ]);
 
       const completedOrders = ordersRes.data || [];
-      const totalRevenue = completedOrders.reduce((sum, o) => sum + Number(o.total_amount), 0);
+      const totalRevenue = completedOrders.reduce((sum: number, o: { total_amount: any; }) => sum + Number(o.total_amount), 0);
 
       setStats({
         totalRevenue,

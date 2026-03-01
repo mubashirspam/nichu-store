@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, Package } from "lucide-react";
+import { Plus, Pencil, Trash2, Package, Upload } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { v4 as uuidv4 } from "uuid";
 
 interface Product {
   id: string;
@@ -26,6 +27,8 @@ export default function AdminProductsPage() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const supabase = createClient();
 
   // Form state
@@ -50,6 +53,8 @@ export default function AdminProductsPage() {
       currency: "INR", features: "", icon_name: "Dumbbell", color: "emerald",
       badge: "", file_url: "", is_active: true,
     });
+    setSelectedFile(null);
+    setUploadProgress("");
     setShowForm(true);
   };
 
@@ -69,11 +74,46 @@ export default function AdminProductsPage() {
       file_url: product.file_url || "",
       is_active: product.is_active,
     });
+    setSelectedFile(null);
+    setUploadProgress("");
     setShowForm(true);
   };
 
   const handleSave = async () => {
     setSaving(true);
+    setUploadProgress("Preparing to save...");
+
+    let finalFileUrl = form.file_url;
+
+    if (selectedFile) {
+      setUploadProgress("Uploading file...");
+      const fileExt = selectedFile.name.split(".").pop();
+      const fileName = `${uuidv4()}.${fileExt}`;
+      const filePath = `products/${fileName}`;
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("products")
+        .upload(filePath, selectedFile, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error("File upload error:", uploadError);
+        alert("Failed to upload file. Please check if the 'products' bucket exists and is publicly accessible.");
+        setSaving(false);
+        setUploadProgress("");
+        return;
+      }
+
+      if (uploadData) {
+        const { data: { publicUrl } } = supabase.storage.from("products").getPublicUrl(filePath);
+        finalFileUrl = publicUrl;
+      }
+    }
+
+    setUploadProgress("Saving product to database...");
+
     const featuresArray = form.features.split("\n").map((f) => f.trim()).filter(Boolean);
     const payload = {
       name: form.name,
@@ -86,7 +126,7 @@ export default function AdminProductsPage() {
       icon_name: form.icon_name,
       color: form.color,
       badge: form.badge || null,
-      file_url: form.file_url || null,
+      file_url: finalFileUrl || null,
       is_active: form.is_active,
     };
 
@@ -97,6 +137,7 @@ export default function AdminProductsPage() {
     }
 
     setSaving(false);
+    setUploadProgress("");
     setShowForm(false);
     fetchProducts();
   };
@@ -176,8 +217,29 @@ export default function AdminProductsPage() {
                 <textarea value={form.features} onChange={(e) => setForm({ ...form, features: e.target.value })} rows={4} placeholder="Feature 1&#10;Feature 2&#10;Feature 3" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
               </div>
               <div className="col-span-2">
-                <label className="text-xs font-medium text-gray-500 mb-1 block">File URL (download path)</label>
-                <input type="text" value={form.file_url} onChange={(e) => setForm({ ...form, file_url: e.target.value })} placeholder="/Ultimate-Fitness-Tracker.xlsx" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                <label className="text-xs font-medium text-gray-500 mb-1 block">Product File</label>
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-3">
+                    <label className="cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
+                      <Upload size={16} />
+                      Choose File
+                      <input 
+                        type="file" className="hidden" 
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files.length > 0) {
+                            setSelectedFile(e.target.files[0]);
+                          }
+                        }} 
+                      />
+                    </label>
+                    <span className="text-sm text-gray-600 truncate max-w-xs">
+                      {selectedFile ? selectedFile.name : (form.file_url ? form.file_url.split('/').pop() : "No new file selected")}
+                    </span>
+                  </div>
+                  {uploadProgress && (
+                    <p className="text-xs text-emerald-600 font-medium">{uploadProgress}</p>
+                  )}
+                </div>
               </div>
               <div className="col-span-2 flex items-center gap-2">
                 <input type="checkbox" id="is_active" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} className="rounded" />

@@ -20,7 +20,6 @@ function LoginContent() {
   );
   const [loading, setLoading] = useState(false);
   const { signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth();
-
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);

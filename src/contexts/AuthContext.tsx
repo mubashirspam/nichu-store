@@ -4,6 +4,8 @@ import React, { createContext, useContext, useEffect, useState, useRef, useMemo,
 import { createClient } from "@/lib/supabase/client";
 import type { User, SupabaseClient } from "@supabase/supabase-js";
 
+const LOG_PREFIX = "[🔐 Auth]";
+
 interface Profile {
   id: string;
   email: string;
@@ -34,38 +36,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   if (typeof window !== "undefined" && !supabaseRef.current) {
     supabaseRef.current = createClient();
+    console.log(LOG_PREFIX, "Supabase client initialized");
   }
   const supabase = supabaseRef.current;
 
   const fetchProfile = useCallback(async (userId: string) => {
-    if (!supabase) return;
-    const { data } = await supabase
+    if (!supabase) {
+      console.warn(LOG_PREFIX, "fetchProfile: supabase is null");
+      return;
+    }
+    console.log(LOG_PREFIX, "Fetching profile for user:", userId);
+    const { data, error } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", userId)
       .single();
+    if (error) {
+      console.error(LOG_PREFIX, "fetchProfile error:", error.message);
+    } else {
+      console.log(LOG_PREFIX, "Profile loaded:", data?.email, "role:", data?.role);
+    }
     setProfile(data);
   }, [supabase]);
 
   useEffect(() => {
     if (!supabase) {
+      console.warn(LOG_PREFIX, "No supabase client, skipping auth init");
       setLoading(false);
       return;
     }
 
     const getUser = async () => {
-      const { data: { user: u } } = await supabase.auth.getUser();
-      setUser(u);
-      if (u) {
-        await fetchProfile(u.id);
+      console.log(LOG_PREFIX, "Getting current user...");
+      try {
+        const { data: { user: u }, error } = await supabase.auth.getUser();
+        if (error) {
+          console.error(LOG_PREFIX, "getUser error:", error.message);
+        }
+        console.log(LOG_PREFIX, "Current user:", u ? `${u.email} (${u.id})` : "null (not logged in)");
+        setUser(u);
+        if (u) {
+          await fetchProfile(u.id);
+        }
+      } catch (err) {
+        console.error(LOG_PREFIX, "getUser exception:", err);
       }
       setLoading(false);
+      console.log(LOG_PREFIX, "Auth init complete, loading=false");
     };
 
     getUser();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event: string, session: { user: User } | null) => {
+      async (event, session) => {
+        console.log(LOG_PREFIX, "Auth state changed:", event, "user:", session?.user?.email || "null");
         const currentUser = session?.user ?? null;
         setUser(currentUser);
         if (currentUser) {
@@ -81,31 +105,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase, fetchProfile]);
 
   const avatarUrl = useMemo(() => {
-    // Try Google avatar from user metadata first, then profile
     return user?.user_metadata?.avatar_url || user?.user_metadata?.picture || profile?.avatar_url || null;
   }, [user, profile]);
 
   const signInWithGoogle = useCallback(async () => {
-    if (!supabase) return;
-    await supabase.auth.signInWithOAuth({
+    if (!supabase) {
+      console.error(LOG_PREFIX, "signInWithGoogle: supabase is null");
+      return;
+    }
+    console.log(LOG_PREFIX, "Signing in with Google...");
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
       },
     });
+    if (error) console.error(LOG_PREFIX, "Google sign in error:", error.message);
   }, [supabase]);
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {
-    if (!supabase) return { error: "Supabase not configured" };
+    if (!supabase) {
+      console.error(LOG_PREFIX, "signInWithEmail: supabase is null");
+      return { error: "Supabase not configured" };
+    }
+    console.log(LOG_PREFIX, "Signing in with email:", email);
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+    if (error) {
+      console.error(LOG_PREFIX, "Email sign in error:", error.message);
+    } else {
+      console.log(LOG_PREFIX, "Email sign in successful");
+    }
     return { error: error?.message ?? null };
   }, [supabase]);
 
   const signUpWithEmail = useCallback(async (email: string, password: string, fullName: string) => {
-    if (!supabase) return { error: "Supabase not configured" };
+    if (!supabase) {
+      console.error(LOG_PREFIX, "signUpWithEmail: supabase is null");
+      return { error: "Supabase not configured" };
+    }
+    console.log(LOG_PREFIX, "Signing up with email:", email);
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -114,12 +155,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
+    if (error) {
+      console.error(LOG_PREFIX, "Sign up error:", error.message);
+    } else {
+      console.log(LOG_PREFIX, "Sign up successful");
+    }
     return { error: error?.message ?? null };
   }, [supabase]);
 
   const handleSignOut = useCallback(async () => {
-    if (!supabase) return;
-    await supabase.auth.signOut();
+    if (!supabase) {
+      console.error(LOG_PREFIX, "handleSignOut: supabase is null");
+      return;
+    }
+    console.log(LOG_PREFIX, "Signing out...");
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error(LOG_PREFIX, "Sign out error:", error.message);
+    } else {
+      console.log(LOG_PREFIX, "Sign out successful, redirecting to /");
+    }
     setUser(null);
     setProfile(null);
     window.location.href = "/";

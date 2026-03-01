@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
+import { ProductProvider } from "@/contexts/ProductContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,9 +16,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Nizam Store — Premium Fitness Tracker Excel Sheets | by Nizamudheen KC",
+  title: "NichuStore — Premium Excel Trackers & Planners | by Nizamudheen KC",
   description:
-    "Track workouts, nutrition, body measurements, sleep & more with beautifully designed Excel spreadsheets. Auto-generated charts, instant download. Starting at ₹149.",
+    "Beautiful Excel spreadsheets to track fitness, expenses, habits, projects & more. Auto-generated charts, instant download. Starting at ₹149.",
 };
 
 export default function RootLayout({
@@ -34,9 +35,11 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <AuthProvider>
-          <CartProvider>
-            {children}
-          </CartProvider>
+          <ProductProvider>
+            <CartProvider>
+              {children}
+            </CartProvider>
+          </ProductProvider>
         </AuthProvider>
       </body>
     </html>

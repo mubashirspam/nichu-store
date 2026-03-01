@@ -1,8 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { User } from "@supabase/supabase-js";
+import type { User, SupabaseClient } from "@supabase/supabase-js";
 
 interface Profile {
   id: string;
@@ -16,6 +16,7 @@ interface AuthContextType {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
+  avatarUrl: string | null;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<{ error: string | null }>;
   signUpWithEmail: (email: string, password: string, fullName: string) => Promise<{ error: string | null }>;
@@ -25,19 +26,29 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function getSupabase(): SupabaseClient | null {
+  if (
+    typeof window === "undefined" ||
+    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  ) {
+    return null;
+  }
+  return createClient();
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  
-  // Skip Supabase initialization if env vars are not configured (build time)
-  const supabase = typeof window !== 'undefined' && 
-    process.env.NEXT_PUBLIC_SUPABASE_URL && 
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY 
-    ? createClient() 
-    : null;
+  const supabaseRef = useRef<SupabaseClient | null>(null);
 
-  const fetchProfile = async (userId: string) => {
+  if (!supabaseRef.current) {
+    supabaseRef.current = getSupabase();
+  }
+  const supabase = supabaseRef.current;
+
+  const fetchProfile = useCallback(async (userId: string) => {
     if (!supabase) return;
     const { data } = await supabase
       .from("profiles")
@@ -45,7 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .eq("id", userId)
       .single();
     setProfile(data);
-  };
+  }, [supabase]);
 
   useEffect(() => {
     if (!supabase) {
@@ -54,10 +65,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-      if (user) {
-        await fetchProfile(user.id);
+      const { data: { user: u } } = await supabase.auth.getUser();
+      setUser(u);
+      if (u) {
+        await fetchProfile(u.id);
       }
       setLoading(false);
     };
@@ -78,10 +89,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 
     return () => subscription.unsubscribe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [supabase, fetchProfile]);
 
-  const signInWithGoogle = async () => {
+  const avatarUrl = useMemo(() => {
+    // Try Google avatar from user metadata first, then profile
+    return user?.user_metadata?.avatar_url || user?.user_metadata?.picture || profile?.avatar_url || null;
+  }, [user, profile]);
+
+  const signInWithGoogle = useCallback(async () => {
     if (!supabase) return;
     await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -89,18 +104,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         redirectTo: `${window.location.origin}/auth/callback`,
       },
     });
-  };
+  }, [supabase]);
 
-  const signInWithEmail = async (email: string, password: string) => {
+  const signInWithEmail = useCallback(async (email: string, password: string) => {
     if (!supabase) return { error: "Supabase not configured" };
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
     return { error: error?.message ?? null };
-  };
+  }, [supabase]);
 
-  const signUpWithEmail = async (email: string, password: string, fullName: string) => {
+  const signUpWithEmail = useCallback(async (email: string, password: string, fullName: string) => {
     if (!supabase) return { error: "Supabase not configured" };
     const { error } = await supabase.auth.signUp({
       email,
@@ -111,28 +126,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
     });
     return { error: error?.message ?? null };
-  };
+  }, [supabase]);
 
-  const signOut = async () => {
+  const handleSignOut = useCallback(async () => {
     if (!supabase) return;
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);
-  };
+  }, [supabase]);
+
+  const value = useMemo(() => ({
+    user,
+    profile,
+    loading,
+    avatarUrl,
+    signInWithGoogle,
+    signInWithEmail,
+    signUpWithEmail,
+    signOut: handleSignOut,
+    isAdmin: profile?.role === "admin",
+  }), [user, profile, loading, avatarUrl, signInWithGoogle, signInWithEmail, signUpWithEmail, handleSignOut]);
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        profile,
-        loading,
-        signInWithGoogle,
-        signInWithEmail,
-        signUpWithEmail,
-        signOut,
-        isAdmin: profile?.role === "admin",
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

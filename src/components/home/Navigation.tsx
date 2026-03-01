@@ -109,7 +109,7 @@ export default function Navigation({
                           <Settings size={15} /> Admin Dashboard
                         </Link>
                       )}
-                      <button onClick={() => { signOut(); setShowUserMenu(false); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 w-full ${d ? "hover:bg-white/5" : "hover:bg-red-50"}`}>
+                      <button onClick={async () => { await signOut(); setShowUserMenu(false); window.location.reload(); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 w-full ${d ? "hover:bg-white/5" : "hover:bg-red-50"}`}>
                         <LogOut size={15} /> Sign Out
                       </button>
                     </motion.div>

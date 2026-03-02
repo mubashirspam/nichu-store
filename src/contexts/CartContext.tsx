@@ -8,9 +8,9 @@ import { useAuth } from "./AuthContext";
 const LOG_PREFIX = "[🛒 Cart]";
 
 // Helper: wrap a promise with a timeout so it never hangs forever
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+function withTimeout<T = any>(promise: Promise<T> | PromiseLike<T>, ms: number, label: string): Promise<T> {
   return Promise.race([
-    promise,
+    Promise.resolve(promise),
     new Promise<T>((_, reject) =>
       setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
     ),

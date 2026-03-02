@@ -126,31 +126,38 @@ export default function OrdersPage() {
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${d ? status.darkColor : status.color}`}>
-                        {status.icon} {status.label}
-                      </span>
                       <span className="font-bold">₹{order.total_amount}</span>
                     </div>
                   </div>
                   <div className="space-y-2">
                     {order.order_items?.map((item) => (
                       <div key={item.id} className={`flex items-center justify-between rounded-xl p-3 ${d ? "bg-gray-800/50" : "bg-gray-50"}`}>
-                        <div>
+                        <div className="flex-1">
                           <p className="font-medium text-sm">{item.product_name}</p>
                           <p className={`text-xs ${d ? "text-gray-500" : "text-gray-400"}`}>₹{item.price}</p>
                         </div>
-                        {order.status === "completed" && item.file_url && (
+                        {item.file_url ? (
                           <a href={`/api/downloads?orderItemId=${item.id}`} target="_blank" rel="noopener noreferrer"
                             className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 shadow-lg shadow-violet-500/25 transition-all hover:from-violet-700 hover:to-indigo-700">
                             <Download size={14} /> Download
                           </a>
+                        ) : (
+                          <span className={`text-xs px-3 py-1.5 rounded-lg ${d ? "bg-yellow-500/10 text-yellow-400" : "bg-yellow-50 text-yellow-600"}`}>
+                            Processing...
+                          </span>
                         )}
                       </div>
                     ))}
                   </div>
-                  {order.discount_amount > 0 && (
-                    <p className="text-xs text-violet-500 mt-3">Discount applied: -₹{order.discount_amount}</p>
-                  )}
+                  <div className={`flex items-center justify-between mt-4 pt-4 ${d ? "border-t border-gray-800" : "border-t border-gray-100"}`}>
+                    {order.discount_amount > 0 && (
+                      <p className="text-xs text-violet-500">Discount: -₹{order.discount_amount}</p>
+                    )}
+                    <a href={`/orders/${order.id}`} target="_blank" rel="noopener noreferrer"
+                      className={`text-xs font-medium inline-flex items-center gap-1.5 transition-colors ml-auto ${d ? "text-violet-400 hover:text-violet-300" : "text-violet-600 hover:text-violet-700"}`}>
+                      <Download size={12} /> View Invoice
+                    </a>
+                  </div>
                 </div>
               );
             })}

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { CheckCircle, Download, ArrowLeft, Dumbbell, FileSpreadsheet, Shield, Package } from "lucide-react";
+import { CheckCircle, Download, ArrowLeft, Sparkles, FileSpreadsheet, Shield, Package, Clock } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -32,6 +32,13 @@ function OrderContent() {
   const { user } = useAuth();
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [dark, setDark] = useState(false);
+
+  useEffect(() => {
+    setDark(document.documentElement.classList.contains("dark"));
+  }, []);
+
+  const d = dark;
 
   useEffect(() => {
     if (!user || !params.id) return;
@@ -55,111 +62,105 @@ function OrderContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white flex items-center justify-center">
-        <div className="text-gray-500">Loading order...</div>
+      <div className={`min-h-screen flex items-center justify-center ${d ? "bg-[#0a0a0f]" : "bg-gray-50"}`}>
+        <div className="inline-flex items-center gap-3">
+          <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+          <span className={d ? "text-gray-400" : "text-gray-500"}>Loading order...</span>
+        </div>
       </div>
     );
   }
 
   if (!order) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className={`min-h-screen flex items-center justify-center ${d ? "bg-[#0a0a0f]" : "bg-gray-50"}`}>
         <div className="text-center">
-          <Package size={48} className="mx-auto text-gray-300 mb-4" />
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Order not found</h2>
-          <Link href="/orders" className="text-emerald-600 hover:underline text-sm">View all orders</Link>
+          <Package size={48} className={`mx-auto mb-4 ${d ? "text-gray-700" : "text-gray-300"}`} />
+          <h2 className="text-xl font-bold mb-2">Order not found</h2>
+          <Link href="/orders" className="text-violet-500 hover:underline text-sm">View all orders</Link>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white flex items-center justify-center px-6 py-12">
+    <div className={`min-h-screen flex items-center justify-center px-6 py-12 ${d ? "bg-[#0a0a0f]" : "bg-gray-50"}`}>
       <div className="max-w-2xl w-full">
-        <div className="bg-white border border-gray-200 rounded-2xl p-8 md:p-12 text-center shadow-xl">
-          {isSuccess && order.status === "completed" && (
+        <div className={`rounded-2xl p-8 md:p-12 text-center shadow-2xl ${d ? "bg-gray-900/80 border border-gray-800" : "bg-white border border-gray-200"}`}>
+          {isSuccess ? (
             <>
-              <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <CheckCircle size={48} className="text-emerald-600" />
+              <div className="w-20 h-20 bg-gradient-to-br from-violet-500 to-indigo-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                <CheckCircle size={48} className="text-white" />
               </div>
-              <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-3">Payment Successful!</h1>
-              <p className="text-gray-600 text-lg mb-8">Your products are ready to download.</p>
+              <h1 className="text-3xl md:text-4xl font-extrabold mb-3">Payment Successful!</h1>
+              <p className={`text-lg mb-8 ${d ? "text-gray-400" : "text-gray-600"}`}>Your products are ready to download.</p>
             </>
-          )}
-
-          {!isSuccess && (
+          ) : (
             <>
-              <h1 className="text-2xl font-extrabold text-gray-900 mb-2">Order Details</h1>
-              <p className="text-gray-400 text-sm font-mono mb-6">{order.order_number}</p>
+              <div className="w-16 h-16 bg-gradient-to-br from-violet-500 to-indigo-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <FileSpreadsheet size={32} className="text-white" />
+              </div>
+              <h1 className="text-2xl font-extrabold mb-2">Invoice</h1>
+              <p className={`text-sm font-mono mb-6 ${d ? "text-gray-500" : "text-gray-400"}`}>{order.order_number}</p>
             </>
           )}
 
           {/* Download Section */}
-          {order.status === "completed" && (
-            <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-300 rounded-2xl p-6 mb-6">
-              <div className="w-14 h-14 bg-emerald-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-                <FileSpreadsheet size={28} className="text-emerald-600" />
-              </div>
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Download Your Products</h2>
-
-              <div className="space-y-3">
-                {order.order_items?.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between bg-white rounded-xl p-4 border border-emerald-200">
-                    <span className="font-medium text-gray-900 text-sm">{item.product_name}</span>
-                    {item.file_url ? (
-                      <a
-                        href={item.file_url}
-                        download
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-lg font-semibold text-sm inline-flex items-center gap-2 transition-colors"
-                      >
-                        <Download size={16} />
-                        Download
-                      </a>
-                    ) : (
-                      <span className="text-gray-400 text-xs">Coming soon</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex items-center justify-center gap-2 mt-3 text-xs text-gray-400">
-                <Shield size={12} />
-                Secure download · .xlsx format
-              </div>
+          <div className={`rounded-2xl p-6 mb-6 ${d ? "bg-violet-500/10 border-2 border-violet-500/30" : "bg-gradient-to-r from-violet-50 to-indigo-50 border-2 border-violet-300"}`}>
+            <h2 className="text-xl font-bold mb-4">Download Your Products</h2>
+            <div className="space-y-3">
+              {order.order_items?.map((item) => (
+                <div key={item.id} className={`flex items-center justify-between rounded-xl p-4 ${d ? "bg-gray-900/60 border border-gray-800" : "bg-white border border-violet-200"}`}>
+                  <span className="font-medium text-sm">{item.product_name}</span>
+                  {item.file_url ? (
+                    <a href={`/api/downloads?orderItemId=${item.id}`} target="_blank" rel="noopener noreferrer"
+                      className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white px-5 py-2.5 rounded-lg font-semibold text-sm inline-flex items-center gap-2 shadow-lg shadow-violet-500/25 transition-all">
+                      <Download size={16} /> Download
+                    </a>
+                  ) : (
+                    <span className={`text-xs ${d ? "text-gray-600" : "text-gray-400"}`}>Processing...</span>
+                  )}
+                </div>
+              ))}
             </div>
-          )}
+            <div className={`flex items-center justify-center gap-2 mt-3 text-xs ${d ? "text-gray-500" : "text-gray-400"}`}>
+              <Shield size={12} /> Secure download · .xlsx format
+            </div>
+          </div>
 
           {/* Payment Info */}
           {order.razorpay_payment_id && (
-            <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-6">
-              <p className="text-xs text-gray-500 mb-1">Payment ID</p>
-              <p className="text-sm font-mono text-gray-700 select-all">{order.razorpay_payment_id}</p>
+            <div className={`rounded-xl p-4 mb-6 ${d ? "bg-gray-800/50 border border-gray-700" : "bg-gray-50 border border-gray-200"}`}>
+              <p className={`text-xs mb-1 ${d ? "text-gray-500" : "text-gray-500"}`}>Payment ID</p>
+              <p className={`text-sm font-mono select-all ${d ? "text-gray-300" : "text-gray-700"}`}>{order.razorpay_payment_id}</p>
             </div>
           )}
 
           {/* Order Summary */}
-          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-6 text-left">
+          <div className={`rounded-xl p-4 mb-6 text-left ${d ? "bg-gray-800/50 border border-gray-700" : "bg-gray-50 border border-gray-200"}`}>
             <div className="flex justify-between text-sm mb-2">
-              <span className="text-gray-500">Order Total</span>
+              <span className={d ? "text-gray-400" : "text-gray-500"}>Order Total</span>
               <span className="font-medium">₹{order.total_amount}</span>
             </div>
             {order.discount_amount > 0 && (
-              <div className="flex justify-between text-sm text-emerald-600">
+              <div className="flex justify-between text-sm text-violet-500">
                 <span>Discount</span>
                 <span>-₹{order.discount_amount}</span>
               </div>
             )}
+            <div className={`flex justify-between text-sm mt-2 pt-2 ${d ? "border-t border-gray-700" : "border-t border-gray-200"}`}>
+              <span className={d ? "text-gray-400" : "text-gray-500"}>Date</span>
+              <span className="font-medium">{new Date(order.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</span>
+            </div>
           </div>
 
           {/* Navigation */}
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link href="/orders" className="text-emerald-600 hover:text-emerald-700 font-semibold inline-flex items-center justify-center gap-2 transition-colors">
-              <Package size={16} />
-              All Orders
+            <Link href="/orders" className="text-violet-500 hover:text-violet-600 font-semibold inline-flex items-center justify-center gap-2 transition-colors">
+              <Package size={16} /> All Orders
             </Link>
-            <Link href="/" className="text-gray-500 hover:text-gray-700 font-medium inline-flex items-center justify-center gap-2 transition-colors">
-              <ArrowLeft size={16} />
-              Back to Store
+            <Link href="/" className={`font-medium inline-flex items-center justify-center gap-2 transition-colors ${d ? "text-gray-400 hover:text-gray-300" : "text-gray-500 hover:text-gray-700"}`}>
+              <ArrowLeft size={16} /> Back to Store
             </Link>
           </div>
         </div>

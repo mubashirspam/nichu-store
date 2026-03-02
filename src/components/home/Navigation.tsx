@@ -63,11 +63,11 @@ export default function Navigation({
           </Link>
           <div className="flex items-center gap-3">
             <a href="#products" className={`hidden md:block text-sm font-medium transition-colors ${d ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-gray-900"}`}>
-              Products
+              Templates
             </a>
-            <a href="#previews" className={`hidden md:block text-sm font-medium transition-colors ${d ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-gray-900"}`}>
-              Previews
-            </a>
+             <Link href="/orders" className={`flex items-center gap-3 px-4 py-2.5 text-sm ${d ? "hover:bg-white/5" : "hover:bg-gray-50"}`} onClick={() => setShowUserMenu(false)}>
+                         My Orders
+                      </Link>
             <a href="#faq" className={`hidden md:block text-sm font-medium transition-colors ${d ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-gray-900"}`}>
               FAQ
             </a>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
+import { createClient } from "@/lib/supabase/server";
 
 export async function POST(req: NextRequest) {
   try {
@@ -108,11 +109,26 @@ async function handlePaymentCaptured(event: any) {
     status: payment.status,
   });
 
-  // TODO: Update database - mark payment as captured/completed
-  // TODO: Send download link to customer email
-  // TODO: Generate invoice
-  // Example:
-  // await sendDownloadEmail(payment.email, payment.notes.productName);
+  try {
+    const supabase = await createClient();
+    
+    // Update order status to completed
+    const { error: updateError } = await supabase
+      .from("orders")
+      .update({ 
+        status: "completed",
+        razorpay_payment_id: payment.id 
+      })
+      .eq("razorpay_order_id", payment.order_id);
+
+    if (updateError) {
+      console.error("Failed to update order status:", updateError);
+    } else {
+      console.log("Order marked as completed:", payment.order_id);
+    }
+  } catch (error) {
+    console.error("Error in handlePaymentCaptured:", error);
+  }
 }
 
 async function handlePaymentFailed(event: any) {

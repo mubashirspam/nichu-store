@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Missing orderItemId" }, { status: 400 });
     }
 
-    // 3. Verify the order item belongs to this user AND the order is completed
+    // 3. Verify the order item belongs to this user
     const { data: orderItem, error: itemError } = await supabase
       .from("order_items")
       .select(`
@@ -37,8 +37,7 @@ export async function GET(req: NextRequest) {
         product_name,
         order:orders!inner (
           id,
-          user_id,
-          status
+          user_id
         )
       `)
       .eq("id", orderItemId)
@@ -51,13 +50,9 @@ export async function GET(req: NextRequest) {
     // Type-safe access to order
     const order = orderItem.order as any;
 
-    // 4. Security checks
+    // 4. Security check - verify order belongs to user
     if (order.user_id !== user.id) {
       return NextResponse.json({ error: "Forbidden: This order does not belong to you" }, { status: 403 });
-    }
-
-    if (order.status !== "completed") {
-      return NextResponse.json({ error: "Forbidden: Payment not completed" }, { status: 403 });
     }
 
     if (!orderItem.file_url) {

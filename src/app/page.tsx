@@ -3,13 +3,10 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronUp } from "lucide-react";
-
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { useProducts, type Product } from "@/contexts/ProductContext";
 import LoginModal from "@/components/auth/LoginModal";
-
-// Home Components
 import Navigation from "@/components/home/Navigation";
 import Hero from "@/components/home/Hero";
 import Products from "@/components/home/Products";

@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
-  // Skip if Supabase is not configured (build time)
+
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     return NextResponse.next();
   }
@@ -26,17 +26,27 @@ export async function middleware(request: NextRequest) {
           supabaseResponse = NextResponse.next({
             request,
           });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          );
+          cookiesToSet.forEach(({ name, value, options }) => {
+            // Ensure cookies work in production with proper settings
+            const cookieOptions = {
+              ...options,
+              sameSite: 'lax' as const,
+              secure: process.env.NODE_ENV === 'production',
+              path: '/',
+            };
+            supabaseResponse.cookies.set(name, value, cookieOptions);
+          });
         },
       },
     }
   );
 
+  // Refresh session to ensure it's valid
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const user = session?.user || null;
 
   console.log(`[🛡️ Middleware] ${request.nextUrl.pathname} — user: ${user?.email || "null"}`);
 

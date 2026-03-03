@@ -24,7 +24,7 @@ export default function StorePage() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [dark, setDark] = useState(false);
   
-  const { user, signOut, isAdmin, avatarUrl } = useAuth();
+  const { user, signOut, isAdmin, avatarUrl, loading: authLoading } = useAuth();
   const { addToCart, isInCart, itemCount, addingProductIds } = useCart();
   const { products, loading } = useProducts();
 
@@ -46,6 +46,8 @@ export default function StorePage() {
   }, []);
 
   const handleAddToCartAndNavigate = useCallback(async (product: Product) => {
+    // Don't redirect to login if session is still loading (e.g. after OAuth redirect)
+    if (authLoading) return;
     if (!user) { 
       router.push("/auth/sign-in");
       return; 
@@ -65,7 +67,7 @@ export default function StorePage() {
         badge: product.badge || null,
       });
     }
-  }, [user, addToCart, isInCart, router]);
+  }, [user, authLoading, addToCart, isInCart, router]);
 
   const mainProduct = products[0] || null;
   const d = dark; // shorthand
@@ -80,6 +82,7 @@ export default function StorePage() {
         user={user}
         isAdmin={isAdmin}
         avatarUrl={avatarUrl}
+        authLoading={authLoading}
         signOut={signOut}
         showUserMenu={showUserMenu}
         setShowUserMenu={setShowUserMenu}

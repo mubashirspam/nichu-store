@@ -22,6 +22,7 @@ interface NavigationProps {
   user: any;
   isAdmin: boolean;
   avatarUrl: string | null;
+  authLoading: boolean;
   signOut: () => void;
   showUserMenu: boolean;
   setShowUserMenu: (show: boolean) => void;
@@ -34,6 +35,7 @@ export default function Navigation({
   user,
   isAdmin,
   avatarUrl,
+  authLoading,
   signOut,
   showUserMenu,
   setShowUserMenu,
@@ -110,6 +112,8 @@ export default function Navigation({
                   )}
                 </AnimatePresence>
               </div>
+            ) : authLoading ? (
+              <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
             ) : (
               <Link href="/auth/sign-in" className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white px-5 py-2 rounded-xl font-semibold text-sm flex items-center gap-2 shadow-lg shadow-violet-500/25 transition-all">
                 <User size={15} />

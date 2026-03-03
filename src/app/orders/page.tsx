@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from "react";
 import { Package, Download, ArrowLeft, Sparkles, Clock, CheckCircle, XCircle } from "lucide-react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface Order {
@@ -46,17 +45,10 @@ export default function OrdersPage() {
       return;
     }
     const fetchOrders = async () => {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from("orders")
-        .select(`
-          id, order_number, total_amount, discount_amount, currency, status, created_at,
-          order_items (id, product_name, price, file_url)
-        `)
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-
-      setOrders((data as any) || []);
+      const res = await fetch("/api/orders");
+      if (res.ok) {
+        setOrders(await res.json());
+      }
       setLoading(false);
     };
     fetchOrders();

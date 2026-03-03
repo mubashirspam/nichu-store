@@ -1,18 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { auth } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { orders, offerCodes, offerCodeUsage, cartItems } from "@/lib/db/schema";
+import { eq, and } from "drizzle-orm";
 import crypto from "crypto";
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      console.error("[Verify] No user session found — user is unauthorized");
+    const { data: __session } = await auth.getSession(); const userId = __session?.user?.id;
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    console.log("[Verify] User authenticated:", user.email, user.id);
 
     const {
       razorpay_order_id,
@@ -22,13 +20,10 @@ export async function POST(req: NextRequest) {
       offerCode,
     } = await req.json();
 
-    console.log("[Verify] Received:", { razorpay_order_id, razorpay_payment_id, dbOrderId, offerCode });
-
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return NextResponse.json({ error: "Missing payment details", verified: false }, { status: 400 });
     }
 
-    // Verify signature
     const keySecret = process.env.RAZORPAY_KEY_SECRET!;
     const generatedSignature = crypto
       .createHmac("sha256", keySecret)
@@ -36,66 +31,47 @@ export async function POST(req: NextRequest) {
       .digest("hex");
 
     if (generatedSignature !== razorpay_signature) {
-      console.error("[Verify] Signature mismatch for order:", dbOrderId);
-      // Use admin client to ensure the update goes through
-      const adminSupabase = await createAdminClient();
-      await adminSupabase
-        .from("orders")
-        .update({ status: "failed" })
-        .eq("id", dbOrderId);
-
+      await db.update(orders).set({ status: "failed" }).where(eq(orders.id, dbOrderId));
       return NextResponse.json({ error: "Payment verification failed", verified: false }, { status: 400 });
     }
 
-    console.log("[Verify] Signature verified ✅ — updating order to completed");
-
-    // Use admin client (service role) to bypass RLS and ensure the update succeeds
-    const adminSupabase = await createAdminClient();
-
-    const { data: updatedOrder, error: updateError } = await adminSupabase
-      .from("orders")
-      .update({
-        razorpay_payment_id,
-        razorpay_signature,
+    const [updatedOrder] = await db
+      .update(orders)
+      .set({
+        razorpayPaymentId: razorpay_payment_id,
+        razorpaySignature: razorpay_signature,
         status: "completed",
       })
-      .eq("id", dbOrderId)
-      .select()
-      .single();
+      .where(eq(orders.id, dbOrderId))
+      .returning();
 
-    if (updateError) {
-      console.error("[Verify] FAILED to update order status:", updateError.message, updateError.code);
+    if (!updatedOrder) {
       return NextResponse.json({ error: "Failed to update order", verified: false }, { status: 500 });
     }
 
-    console.log("[Verify] Order updated to completed:", updatedOrder?.id, "status:", updatedOrder?.status);
-
-    // If offer code was used, record usage and increment count
     if (offerCode) {
-      const { data: code } = await adminSupabase
-        .from("offer_codes")
-        .select("id, used_count")
-        .eq("code", offerCode.toUpperCase())
-        .single();
+      const [code] = await db
+        .select({ id: offerCodes.id, usedCount: offerCodes.usedCount })
+        .from(offerCodes)
+        .where(eq(offerCodes.code, offerCode.toUpperCase()))
+        .limit(1);
 
       if (code) {
-        await adminSupabase.from("offer_code_usage").insert({
-          offer_code_id: code.id,
-          user_id: user.id,
-          order_id: dbOrderId,
+        await db.insert(offerCodeUsage).values({
+          offerCodeId: code.id,
+          userId,
+          orderId: dbOrderId,
         });
 
-        await adminSupabase
-          .from("offer_codes")
-          .update({ used_count: code.used_count + 1 })
-          .eq("id", code.id);
+        await db
+          .update(offerCodes)
+          .set({ usedCount: code.usedCount + 1 })
+          .where(eq(offerCodes.id, code.id));
       }
     }
 
-    // Clear user's cart after successful payment
-    await adminSupabase.from("cart_items").delete().eq("user_id", user.id);
-
-    console.log("[Verify] Payment verified ✅:", { userId: user.id, orderId: dbOrderId, paymentId: razorpay_payment_id });
+    // Clear user's cart
+    await db.delete(cartItems).where(eq(cartItems.userId, userId));
 
     return NextResponse.json({
       verified: true,

@@ -6,7 +6,6 @@ import { ChevronUp } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { useProducts, type Product } from "@/contexts/ProductContext";
-import LoginModal from "@/components/auth/LoginModal";
 import Navigation from "@/components/home/Navigation";
 import Hero from "@/components/home/Hero";
 import Products from "@/components/home/Products";
@@ -22,12 +21,11 @@ export default function StorePage() {
   const router = useRouter();
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showPreview, setShowPreview] = useState(false);
-  const [showLogin, setShowLogin] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [dark, setDark] = useState(false);
   
-  const { user, profile, signOut, isAdmin, avatarUrl } = useAuth();
-  const { addToCart, isInCart, itemCount } = useCart();
+  const { user, signOut, isAdmin, avatarUrl } = useAuth();
+  const { addToCart, isInCart, itemCount, addingProductIds } = useCart();
   const { products, loading } = useProducts();
 
   useEffect(() => {
@@ -49,13 +47,24 @@ export default function StorePage() {
 
   const handleAddToCartAndNavigate = useCallback(async (product: Product) => {
     if (!user) { 
-      setShowLogin(true); 
+      router.push("/auth/sign-in");
       return; 
     }
-    if (!isInCart(product.id)) {
-      await addToCart(product.id);
-    }
+    // Navigate immediately for snappy UX
     router.push("/cart");
+    // Add to cart in background with product data for optimistic rendering
+    if (!isInCart(product.id)) {
+      addToCart(product.id, {
+        name: product.name,
+        short_name: product.short_name,
+        price: product.price,
+        original_price: product.original_price,
+        currency: product.currency,
+        icon_name: product.icon_name,
+        color: product.color,
+        badge: product.badge || null,
+      });
+    }
   }, [user, addToCart, isInCart, router]);
 
   const mainProduct = products[0] || null;
@@ -63,22 +72,17 @@ export default function StorePage() {
 
   return (
     <div className={`min-h-screen transition-colors duration-300 ${d ? "bg-[#0a0a0f] text-white" : "bg-white text-gray-900"}`}>
-      <LoginModal isOpen={showLogin} onClose={() => setShowLogin(false)} />
-
       {/* 1. Navigation */}
       <Navigation
         dark={d}
         toggleTheme={toggleTheme}
         itemCount={itemCount}
         user={user}
-        profile={profile}
         isAdmin={isAdmin}
         avatarUrl={avatarUrl}
         signOut={signOut}
         showUserMenu={showUserMenu}
         setShowUserMenu={setShowUserMenu}
-        showLogin={showLogin}
-        setShowLogin={setShowLogin}
       />
 
       {/* 2. Hero */}
@@ -96,6 +100,7 @@ export default function StorePage() {
         loading={loading}
         products={products}
         isInCart={isInCart}
+        addingProductIds={addingProductIds}
         handleAddToCart={handleAddToCartAndNavigate}
         onPreview={(p) => { setSelectedProduct(p); setShowPreview(true); }}
       />

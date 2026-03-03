@@ -26,11 +26,12 @@ interface ProductsProps {
   loading: boolean;
   products: Product[];
   isInCart: (id: string) => boolean;
+  addingProductIds?: Set<string>;
   handleAddToCart: (product: Product) => void;
   onPreview: (product: Product) => void;
 }
 
-export default function Products({ dark: d, loading, products, isInCart, handleAddToCart, onPreview }: ProductsProps) {
+export default function Products({ dark: d, loading, products, isInCart, addingProductIds, handleAddToCart, onPreview }: ProductsProps) {
   return (
     <section id="products" className={`py-20 px-6 ${d ? "bg-gray-900/30" : "bg-gray-50/80"}`}>
       <div className="max-w-7xl mx-auto">
@@ -50,6 +51,7 @@ export default function Products({ dark: d, loading, products, isInCart, handleA
             {products.map((product, idx) => {
               const c = colorMap[product.color] || colorMap.emerald;
               const inCart = isInCart(product.id);
+              const isAdding = addingProductIds?.has(product.id) ?? false;
               return (
                 <motion.div key={product.id} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.4, delay: idx * 0.08 }}
                   className={`relative group rounded-2xl p-6 transition-all duration-300 ${d ? "bg-gray-900/60 border border-gray-800 hover:border-violet-500/40" : "bg-white border border-gray-200 hover:border-violet-300 hover:shadow-xl"}`}>
@@ -69,9 +71,15 @@ export default function Products({ dark: d, loading, products, isInCart, handleA
                     ))}
                   </ul>
                   <div className="flex gap-2">
-                    <button onClick={() => handleAddToCart(product)} disabled={inCart}
-                      className={`flex-1 py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all ${inCart ? (d ? "bg-gray-800 text-gray-400" : "bg-gray-100 text-gray-500") : `bg-gradient-to-r ${c.btn} text-white shadow-lg`}`}>
-                      {inCart ? <><CheckCircle size={15} /> In Cart</> : <><Plus size={15} /> Add to Cart</>}
+                    <button onClick={() => handleAddToCart(product)} disabled={inCart || isAdding}
+                      className={`flex-1 py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all ${inCart ? (d ? "bg-gray-800 text-gray-400" : "bg-gray-100 text-gray-500") : `bg-gradient-to-r ${c.btn} text-white shadow-lg`} ${isAdding ? "opacity-80" : ""}`}>
+                      {isAdding ? (
+                        <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Adding...</>
+                      ) : inCart ? (
+                        <><CheckCircle size={15} /> In Cart</>
+                      ) : (
+                        <><Plus size={15} /> Add to Cart</>
+                      )}
                     </button>
                     <button onClick={() => onPreview(product)}
                       className={`px-3 py-3 rounded-xl transition-all ${d ? "bg-gray-800 hover:bg-gray-700 text-gray-400" : "bg-gray-100 hover:bg-gray-200 text-gray-500"}`}>

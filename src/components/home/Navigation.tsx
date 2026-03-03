@@ -20,14 +20,11 @@ interface NavigationProps {
   toggleTheme: () => void;
   itemCount: number;
   user: any;
-  profile: any;
   isAdmin: boolean;
   avatarUrl: string | null;
   signOut: () => void;
   showUserMenu: boolean;
   setShowUserMenu: (show: boolean) => void;
-  showLogin: boolean;
-  setShowLogin: (show: boolean) => void;
 }
 
 export default function Navigation({
@@ -35,17 +32,14 @@ export default function Navigation({
   toggleTheme,
   itemCount,
   user,
-  profile,
   isAdmin,
   avatarUrl,
   signOut,
   showUserMenu,
   setShowUserMenu,
-  setShowLogin,
 }: NavigationProps) {
   const displayName =
-    profile?.full_name ||
-    user?.user_metadata?.full_name ||
+    user?.fullName ||
     user?.email?.split("@")[0] ||
     "U";
 
@@ -117,10 +111,10 @@ export default function Navigation({
                 </AnimatePresence>
               </div>
             ) : (
-              <button onClick={() => setShowLogin(true)} className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white px-5 py-2 rounded-xl font-semibold text-sm flex items-center gap-2 shadow-lg shadow-violet-500/25 transition-all">
+              <Link href="/auth/sign-in" className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white px-5 py-2 rounded-xl font-semibold text-sm flex items-center gap-2 shadow-lg shadow-violet-500/25 transition-all">
                 <User size={15} />
                 <span className="hidden sm:inline">Sign In</span>
-              </button>
+              </Link>
             )}
           </div>
         </div>

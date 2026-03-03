@@ -1,76 +1,67 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { auth } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { offerCodes, offerCodeUsage } from "@/lib/db/schema";
+import { eq, and } from "drizzle-orm";
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
+    const { data: __session } = await auth.getSession(); const userId = __session?.user?.id;
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { code, cartTotal } = await req.json();
-
     if (!code) {
       return NextResponse.json({ error: "No code provided" }, { status: 400 });
     }
 
-    const { data: offerCode, error } = await supabase
-      .from("offer_codes")
-      .select("*")
-      .eq("code", code.toUpperCase())
-      .eq("is_active", true)
-      .single();
+    const [oc] = await db
+      .select()
+      .from(offerCodes)
+      .where(and(eq(offerCodes.code, code.toUpperCase()), eq(offerCodes.isActive, true)))
+      .limit(1);
 
-    if (error || !offerCode) {
+    if (!oc) {
       return NextResponse.json({ error: "Invalid offer code" }, { status: 404 });
     }
 
-    // Check if user already used this code
-    const { data: usage } = await supabase
-      .from("offer_code_usage")
-      .select("id")
-      .eq("offer_code_id", (offerCode as any).id)
-      .eq("user_id", user.id)
-      .single();
+    const [usage] = await db
+      .select({ id: offerCodeUsage.id })
+      .from(offerCodeUsage)
+      .where(and(eq(offerCodeUsage.offerCodeId, oc.id), eq(offerCodeUsage.userId, userId)))
+      .limit(1);
 
     if (usage) {
       return NextResponse.json({ error: "You have already used this offer code" }, { status: 400 });
     }
 
-    const oc = offerCode as any;
-
-    // Check max uses
-    if (oc.max_uses && oc.used_count >= oc.max_uses) {
+    if (oc.maxUses && oc.usedCount >= oc.maxUses) {
       return NextResponse.json({ error: "This offer code has reached its maximum uses" }, { status: 400 });
     }
 
-    // Check validity period
-    const now = new Date();
-    if (oc.valid_until && new Date(oc.valid_until) < now) {
+    if (oc.validUntil && new Date(oc.validUntil) < new Date()) {
       return NextResponse.json({ error: "This offer code has expired" }, { status: 400 });
     }
 
-    // Calculate discount
     let discountAmount = 0;
-    if (oc.discount_type === "percentage") {
-      discountAmount = Math.round(((cartTotal || 0) * oc.discount_value) / 100);
+    const discountValue = Number(oc.discountValue);
+    if (oc.discountType === "percentage") {
+      discountAmount = Math.round(((cartTotal || 0) * discountValue) / 100);
     } else {
-      discountAmount = oc.discount_value;
+      discountAmount = discountValue;
     }
-
     discountAmount = Math.min(discountAmount, cartTotal || 0);
 
     return NextResponse.json({
       valid: true,
       code: oc.code,
-      discountType: oc.discount_type,
-      discountValue: oc.discount_value,
+      discountType: oc.discountType,
+      discountValue,
       discountAmount,
-      message: oc.discount_type === "percentage"
-        ? `${oc.discount_value}% off applied!`
-        : `₹${oc.discount_value} off applied!`,
+      message: oc.discountType === "percentage"
+        ? `${discountValue}% off applied!`
+        : `₹${discountValue} off applied!`,
     });
   } catch (error) {
     console.error("Error validating offer code:", error);

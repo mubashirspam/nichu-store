@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
+import { authClient } from "@/lib/auth/client";
+import { NeonAuthUIProvider } from "@neondatabase/auth/react";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
@@ -28,17 +30,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AuthProvider>
-          <ProductProvider>
-            <CartProvider>
-              {children}
-            </CartProvider>
-          </ProductProvider>
-        </AuthProvider>
+        {/* @ts-ignore - beta package type mismatch */}
+        <NeonAuthUIProvider authClient={authClient} redirectTo="/account/settings">
+          <AuthProvider>
+            <ProductProvider>
+              <CartProvider>
+                {children}
+              </CartProvider>
+            </ProductProvider>
+          </AuthProvider>
+        </NeonAuthUIProvider>
         <Script
           src="https://checkout.razorpay.com/v1/checkout.js"
           strategy="afterInteractive"

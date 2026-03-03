@@ -4,7 +4,6 @@ import React, { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { CheckCircle, Download, ArrowLeft, Sparkles, FileSpreadsheet, Shield, Package, Clock } from "lucide-react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Suspense } from "react";
 
@@ -43,18 +42,10 @@ function OrderContent() {
   useEffect(() => {
     if (!user || !params.id) return;
     const fetchOrder = async () => {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from("orders")
-        .select(`
-          id, order_number, total_amount, discount_amount, currency, status, razorpay_payment_id, created_at,
-          order_items (id, product_name, price, file_url)
-        `)
-        .eq("id", params.id as string)
-        .eq("user_id", user.id)
-        .single();
-
-      setOrder(data as any);
+      const res = await fetch(`/api/orders?id=${params.id}`);
+      if (res.ok) {
+        setOrder(await res.json());
+      }
       setLoading(false);
     };
     fetchOrder();

@@ -2,24 +2,27 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { orderItems, orders } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
+import { get } from "@vercel/blob";
 
 export async function GET(req: NextRequest) {
   try {
-    const { data: __session } = await auth.getSession(); const userId = __session?.user?.id;
+    // 1. Authenticate
+    const { data: session } = await auth.getSession();
+    const userId = session?.user?.id;
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // 2. Get orderItemId from query
     const orderItemId = req.nextUrl.searchParams.get("orderItemId");
     if (!orderItemId) {
       return NextResponse.json({ error: "Missing orderItemId" }, { status: 400 });
     }
 
-    // Fetch order item with its parent order
+    // 3. Fetch order item and verify ownership
     const [item] = await db
       .select({
-        id: orderItems.id,
         fileUrl: orderItems.fileUrl,
         productName: orderItems.productName,
         orderId: orderItems.orderId,
@@ -32,33 +35,46 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Order item not found" }, { status: 404 });
     }
 
-    // Verify the order belongs to this user
+    // 4. Verify the order belongs to this user and is completed
     const [order] = await db
-      .select({ userId: orders.userId })
+      .select({ userId: orders.userId, status: orders.status })
       .from(orders)
-      .where(eq(orders.id, item.orderId))
+      .where(and(eq(orders.id, item.orderId), eq(orders.userId, userId)))
       .limit(1);
 
-    if (!order || order.userId !== userId) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!order) {
+      return NextResponse.json({ error: "Order not found or unauthorized" }, { status: 403 });
     }
 
+    if (order.status !== "completed") {
+      return NextResponse.json({ error: "Order is not completed yet" }, { status: 403 });
+    }
+
+    // 5. Check file URL exists
     if (!item.fileUrl) {
-      return NextResponse.json({ error: "No file available for this product" }, { status: 404 });
+      return NextResponse.json({ error: "No file associated with this product" }, { status: 404 });
     }
 
-    // If the file_url is a full Vercel Blob URL, redirect to it directly
-    if (item.fileUrl.startsWith("https://")) {
-      return NextResponse.redirect(item.fileUrl);
+    // 6. Fetch the file from private Vercel Blob store
+    const blobResult = await get(item.fileUrl, { access: "private" });
+
+    if (!blobResult || blobResult.statusCode !== 200) {
+      return NextResponse.json({ error: "File not found in storage" }, { status: 404 });
     }
 
-    // For legacy Supabase storage paths, construct the blob URL
-    const blobBaseUrl = process.env.BLOB_BASE_URL;
-    if (blobBaseUrl) {
-      return NextResponse.redirect(`${blobBaseUrl}/${item.fileUrl}`);
-    }
+    // 7. Determine filename
+    const ext = item.fileUrl.split(".").pop() || "xlsx";
+    const safeName = item.productName.replace(/[^a-zA-Z0-9-_ ]/g, "").replace(/\s+/g, "-");
+    const filename = `${safeName}.${ext}`;
 
-    return NextResponse.json({ error: "File storage not configured" }, { status: 500 });
+    // 8. Stream the file back to the user
+    return new Response(blobResult.stream, {
+      headers: {
+        "Content-Type": blobResult.blob.contentType || "application/octet-stream",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Cache-Control": "no-store",
+      },
+    });
   } catch (error) {
     console.error("Download error:", error);
     return NextResponse.json({ error: "Download failed" }, { status: 500 });

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { createClient } from "@/lib/supabase/server";
+import { db } from "@/lib/db";
+import { orders } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 
 export async function POST(req: NextRequest) {
   try {
@@ -110,22 +112,15 @@ async function handlePaymentCaptured(event: any) {
   });
 
   try {
-    const supabase = await createClient();
-    
-    // Update order status to completed
-    const { error: updateError } = await supabase
-      .from("orders")
-      .update({ 
+    await db
+      .update(orders)
+      .set({
         status: "completed",
-        razorpay_payment_id: payment.id 
+        razorpayPaymentId: payment.id,
       })
-      .eq("razorpay_order_id", payment.order_id);
+      .where(eq(orders.razorpayOrderId, payment.order_id));
 
-    if (updateError) {
-      console.error("Failed to update order status:", updateError);
-    } else {
-      console.log("Order marked as completed:", payment.order_id);
-    }
+    console.log("Order marked as completed:", payment.order_id);
   } catch (error) {
     console.error("Error in handlePaymentCaptured:", error);
   }

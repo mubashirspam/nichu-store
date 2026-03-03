@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { ShoppingCart, Trash2, Tag, ArrowLeft, Sparkles, ShieldCheck, CreditCard, TrendingUp, Apple, Ruler, Dumbbell, FileSpreadsheet, Calculator, Wallet, Calendar, Target, Heart, BarChart3 } from "lucide-react";
+import { ShoppingCart, Trash2, Tag, ArrowLeft, Sparkles, ShieldCheck, CreditCard, TrendingUp, Apple, Ruler, Dumbbell, FileSpreadsheet, Calculator, Wallet, Calendar, Target, Heart, BarChart3, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
-import LoginModal from "@/components/auth/LoginModal";
 
 const iconMap: Record<string, React.ReactNode> = {
   Dumbbell: <Dumbbell size={24} />, TrendingUp: <TrendingUp size={24} />,
@@ -23,9 +23,48 @@ const colorMap: Record<string, { bg: string; text: string; darkBg: string; darkT
   purple: { bg: "bg-purple-100", text: "text-purple-600", darkBg: "bg-purple-500/10", darkText: "text-purple-400" },
 };
 
+function CartItemSkeleton({ dark }: { dark: boolean }) {
+  const d = dark;
+  return (
+    <div className={`rounded-2xl p-5 flex items-center gap-4 animate-pulse ${d ? "bg-gray-900/60 border border-gray-800" : "bg-white border border-gray-200"}`}>
+      <div className={`w-14 h-14 rounded-xl flex-shrink-0 ${d ? "bg-gray-800" : "bg-gray-200"}`} />
+      <div className="flex-1 min-w-0 space-y-2">
+        <div className={`h-4 rounded w-3/4 ${d ? "bg-gray-800" : "bg-gray-200"}`} />
+        <div className={`h-3 rounded w-1/2 ${d ? "bg-gray-800/60" : "bg-gray-100"}`} />
+      </div>
+      <div className="text-right flex-shrink-0 space-y-2">
+        <div className={`h-4 rounded w-12 ml-auto ${d ? "bg-gray-800" : "bg-gray-200"}`} />
+        <div className={`h-3 rounded w-8 ml-auto ${d ? "bg-gray-800/60" : "bg-gray-100"}`} />
+      </div>
+      <div className={`w-8 h-8 rounded flex-shrink-0 ${d ? "bg-gray-800" : "bg-gray-200"}`} />
+    </div>
+  );
+}
+
+function OrderSummarySkeleton({ dark }: { dark: boolean }) {
+  const d = dark;
+  return (
+    <div className={`rounded-2xl p-6 sticky top-24 animate-pulse ${d ? "bg-gray-900/60 border border-gray-800" : "bg-white border border-gray-200"}`}>
+      <div className={`h-5 rounded w-1/2 mb-4 ${d ? "bg-gray-800" : "bg-gray-200"}`} />
+      <div className="space-y-3 mb-4">
+        <div className="flex justify-between">
+          <div className={`h-3 rounded w-1/3 ${d ? "bg-gray-800" : "bg-gray-200"}`} />
+          <div className={`h-3 rounded w-12 ${d ? "bg-gray-800" : "bg-gray-200"}`} />
+        </div>
+        <div className={`pt-3 flex justify-between ${d ? "border-t border-gray-800" : "border-t border-gray-100"}`}>
+          <div className={`h-4 rounded w-1/4 ${d ? "bg-gray-800" : "bg-gray-200"}`} />
+          <div className={`h-4 rounded w-14 ${d ? "bg-gray-800" : "bg-gray-200"}`} />
+        </div>
+      </div>
+      <div className={`h-12 rounded-xl w-full ${d ? "bg-gray-800" : "bg-gray-200"}`} />
+    </div>
+  );
+}
+
 export default function CartPage() {
+  const router = useRouter();
   const { user } = useAuth();
-  const { items, itemCount, totalAmount, removeFromCart, loading: cartLoading } = useCart();
+  const { items, itemCount, totalAmount, removeFromCart, loading: cartLoading, removingItemIds } = useCart();
   const [offerCode, setOfferCode] = useState("");
   const [offerDiscount, setOfferDiscount] = useState(0);
   const [offerMessage, setOfferMessage] = useState("");
@@ -33,7 +72,6 @@ export default function CartPage() {
   const [offerApplied, setOfferApplied] = useState(false);
   const [checkingCode, setCheckingCode] = useState(false);
   const [processing, setProcessing] = useState(false);
-  const [showLogin, setShowLogin] = useState(false);
   const [dark, setDark] = useState(false);
 
   useEffect(() => {
@@ -75,7 +113,7 @@ export default function CartPage() {
 
   const handleCheckout = async () => {
     if (!user) {
-      setShowLogin(true);
+      router.push("/auth/sign-in?callbackURL=/cart");
       return;
     }
 
@@ -147,9 +185,12 @@ export default function CartPage() {
 
   const finalAmount = Math.max(totalAmount - offerDiscount, 1);
 
+  // Show skeleton while initial loading, but if we already have items show them
+  const showSkeleton = cartLoading && items.length === 0;
+  const hasItems = items.length > 0;
+
   return (
     <div className={`min-h-screen ${d ? "bg-[#0a0a0f] text-white" : "bg-gray-50 text-gray-900"}`}>
-      <LoginModal isOpen={showLogin} onClose={() => setShowLogin(false)} />
 
       <div className={`${d ? "border-b border-gray-800 bg-[#0a0a0f]/80" : "bg-white border-b border-gray-200"} glass`}>
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
@@ -166,14 +207,19 @@ export default function CartPage() {
       </div>
 
       <div className="max-w-4xl mx-auto px-6 py-8">
-        {cartLoading ? (
-          <div className="text-center py-20">
-            <div className="inline-flex items-center gap-3">
-              <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-              <span className={d ? "text-gray-400" : "text-gray-500"}>Loading cart...</span>
+        {showSkeleton ? (
+          /* Skeleton loading state */
+          <div className="grid lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-4">
+              <CartItemSkeleton dark={d} />
+              <CartItemSkeleton dark={d} />
+              <CartItemSkeleton dark={d} />
+            </div>
+            <div className="lg:col-span-1">
+              <OrderSummarySkeleton dark={d} />
             </div>
           </div>
-        ) : items.length === 0 ? (
+        ) : !hasItems ? (
           <div className="text-center py-20">
             <ShoppingCart size={64} className={`mx-auto mb-4 ${d ? "text-gray-700" : "text-gray-300"}`} />
             <h2 className="text-2xl font-bold mb-2">Your cart is empty</h2>
@@ -187,21 +233,33 @@ export default function CartPage() {
             <div className="lg:col-span-2 space-y-4">
               {items.map((item) => {
                 const colors = colorMap[item.product.color] || colorMap.emerald;
+                const isRemoving = removingItemIds.has(item.id);
+                const isTemp = item.id.startsWith("temp-");
                 return (
-                  <div key={item.id} className={`rounded-2xl p-5 flex items-center gap-4 ${d ? "bg-gray-900/60 border border-gray-800" : "bg-white border border-gray-200"}`}>
+                  <div key={item.id} className={`rounded-2xl p-5 flex items-center gap-4 transition-all duration-200 ${isRemoving ? "opacity-40 scale-[0.98]" : ""} ${isTemp ? "opacity-70" : ""} ${d ? "bg-gray-900/60 border border-gray-800" : "bg-white border border-gray-200"}`}>
                     <div className={`w-14 h-14 ${d ? colors.darkBg : colors.bg} rounded-xl flex items-center justify-center ${d ? colors.darkText : colors.text} flex-shrink-0`}>
                       {iconMap[item.product.icon_name] || <FileSpreadsheet size={24} />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-bold truncate">{item.product.name}</h3>
-                      <p className={`text-sm ${d ? "text-gray-500" : "text-gray-500"}`}>Digital Download · Excel</p>
+                      <p className={`text-sm ${d ? "text-gray-500" : "text-gray-500"}`}>
+                        {isTemp ? "Adding to cart..." : "Digital Download · Excel"}
+                      </p>
                     </div>
                     <div className="text-right flex-shrink-0">
                       <div className="font-bold">₹{item.product.price}</div>
                       <div className={`text-xs line-through ${d ? "text-gray-600" : "text-gray-400"}`}>₹{item.product.original_price}</div>
                     </div>
-                    <button onClick={() => removeFromCart(item.id)} className="text-gray-400 hover:text-red-500 transition-colors flex-shrink-0">
-                      <Trash2 size={18} />
+                    <button
+                      onClick={() => removeFromCart(item.id)}
+                      disabled={isRemoving || isTemp}
+                      className={`flex-shrink-0 p-2 rounded-lg transition-all ${isRemoving ? "text-red-400" : "text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"} disabled:cursor-not-allowed`}
+                    >
+                      {isRemoving ? (
+                        <Loader2 size={18} className="animate-spin" />
+                      ) : (
+                        <Trash2 size={18} />
+                      )}
                     </button>
                   </div>
                 );

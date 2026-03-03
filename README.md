@@ -52,4 +52,4 @@ Replace the test key in `src/app/page.tsx` line 76 with your live Razorpay key.
 
 ---
 
-Built with ❤️ by Nizamudheen KC
+Built with ❤️ by Mubashir

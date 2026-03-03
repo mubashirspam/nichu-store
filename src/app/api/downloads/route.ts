@@ -1,77 +1,64 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-
-// Raw admin client that fully bypasses RLS (including storage)
-function getStorageAdminClient() {
-  return createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  );
-}
+import { auth } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { orderItems, orders } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
   try {
-    // 1. Verify the user is authenticated
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
+    const { data: __session } = await auth.getSession(); const userId = __session?.user?.id;
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 2. Get the order item ID from query params
     const orderItemId = req.nextUrl.searchParams.get("orderItemId");
-
     if (!orderItemId) {
       return NextResponse.json({ error: "Missing orderItemId" }, { status: 400 });
     }
 
-    // 3. Verify the order item belongs to this user
-    const { data: orderItem, error: itemError } = await supabase
-      .from("order_items")
-      .select(`
-        id,
-        file_url,
-        product_name,
-        order:orders!inner (
-          id,
-          user_id
-        )
-      `)
-      .eq("id", orderItemId)
-      .single();
+    // Fetch order item with its parent order
+    const [item] = await db
+      .select({
+        id: orderItems.id,
+        fileUrl: orderItems.fileUrl,
+        productName: orderItems.productName,
+        orderId: orderItems.orderId,
+      })
+      .from(orderItems)
+      .where(eq(orderItems.id, orderItemId))
+      .limit(1);
 
-    if (itemError || !orderItem) {
+    if (!item) {
       return NextResponse.json({ error: "Order item not found" }, { status: 404 });
     }
 
-    // Type-safe access to order
-    const order = orderItem.order as any;
+    // Verify the order belongs to this user
+    const [order] = await db
+      .select({ userId: orders.userId })
+      .from(orders)
+      .where(eq(orders.id, item.orderId))
+      .limit(1);
 
-    // 4. Security check - verify order belongs to user
-    if (order.user_id !== user.id) {
-      return NextResponse.json({ error: "Forbidden: This order does not belong to you" }, { status: 403 });
+    if (!order || order.userId !== userId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    if (!orderItem.file_url) {
+    if (!item.fileUrl) {
       return NextResponse.json({ error: "No file available for this product" }, { status: 404 });
     }
 
-    // 5. Generate a signed URL (60 seconds expiry) using raw admin client (bypasses RLS)
-    const adminClient = getStorageAdminClient();
-    const { data: signedUrlData, error: signedUrlError } = await adminClient.storage
-      .from("products")
-      .createSignedUrl(orderItem.file_url, 60); // 60 second expiry
-
-    if (signedUrlError || !signedUrlData?.signedUrl) {
-      console.error("Signed URL error:", signedUrlError);
-      return NextResponse.json({ error: "Failed to generate download link" }, { status: 500 });
+    // If the file_url is a full Vercel Blob URL, redirect to it directly
+    if (item.fileUrl.startsWith("https://")) {
+      return NextResponse.redirect(item.fileUrl);
     }
 
-    // 6. Redirect to the signed URL for download
-    return NextResponse.redirect(signedUrlData.signedUrl);
+    // For legacy Supabase storage paths, construct the blob URL
+    const blobBaseUrl = process.env.BLOB_BASE_URL;
+    if (blobBaseUrl) {
+      return NextResponse.redirect(`${blobBaseUrl}/${item.fileUrl}`);
+    }
+
+    return NextResponse.json({ error: "File storage not configured" }, { status: 500 });
   } catch (error) {
     console.error("Download error:", error);
     return NextResponse.json({ error: "Download failed" }, { status: 500 });

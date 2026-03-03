@@ -1,21 +1,7 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useCallback, useRef, useMemo } from "react";
-import { createClient } from "@/lib/supabase/client";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { useAuth } from "./AuthContext";
-
-const LOG_PREFIX = "[🛒 Cart]";
-
-// Helper: wrap a promise with a timeout so it never hangs forever
-function withTimeout<T = any>(promise: Promise<T> | PromiseLike<T>, ms: number, label: string): Promise<T> {
-  return Promise.race([
-    Promise.resolve(promise),
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
-    ),
-  ]);
-}
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface CartItem {
   id: string;
@@ -39,7 +25,9 @@ interface CartContextType {
   itemCount: number;
   totalAmount: number;
   loading: boolean;
-  addToCart: (productId: string) => Promise<void>;
+  addingProductIds: Set<string>;
+  removingItemIds: Set<string>;
+  addToCart: (productId: string, productData?: Partial<CartItem["product"]>) => Promise<void>;
   removeFromCart: (cartItemId: string) => Promise<void>;
   clearCart: () => Promise<void>;
   refreshCart: () => Promise<void>;
@@ -50,216 +38,165 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [initialLoaded, setInitialLoaded] = useState(false);
+  const [addingProductIds, setAddingProductIds] = useState<Set<string>>(new Set());
+  const [removingItemIds, setRemovingItemIds] = useState<Set<string>>(new Set());
   const { user } = useAuth();
-  const supabaseRef = useRef<SupabaseClient | null>(null);
-  const addingToCart = useRef<Set<string>>(new Set());
+  const fetchRef = useRef(false);
 
-  if (typeof window !== "undefined" && !supabaseRef.current) {
-    supabaseRef.current = createClient();
-    console.log(LOG_PREFIX, "Supabase client initialized");
-  }
-  const supabase = supabaseRef.current;
-
-  // Verify the current session is valid before making DB calls
-  const verifySession = useCallback(async (): Promise<boolean> => {
-    if (!supabase) return false;
-    try {
-      const { data: { session }, error } = await withTimeout(
-        supabase.auth.getSession(),
-        5000,
-        "verifySession"
-      );
-      if (error || !session) {
-        console.error(LOG_PREFIX, "Session invalid:", error?.message || "no session");
-        return false;
-      }
-      return true;
-    } catch (err: any) {
-      console.error(LOG_PREFIX, "Session check failed:", err.message);
-      return false;
-    }
-  }, [supabase]);
-
-  const refreshCart = useCallback(async () => {
+  const refreshCart = useCallback(async (background = false) => {
     if (!user) {
-      console.log(LOG_PREFIX, "refreshCart: no user, clearing cart");
       setItems([]);
+      setLoading(false);
+      setInitialLoaded(true);
       return;
     }
-    if (!supabase) {
-      console.warn(LOG_PREFIX, "refreshCart: supabase is null");
-      setItems([]);
-      return;
+    // Only show loading spinner on first load, not on background refresh
+    if (!background && !initialLoaded) {
+      setLoading(true);
     }
-    console.log(LOG_PREFIX, "Refreshing cart for user:", user.email, `(${user.id})`);
-    setLoading(true);
     try {
-      const { data, error } = await withTimeout(
-        supabase
-          .from("cart_items")
-          .select(`
-            id,
-            product_id,
-            quantity,
-            product:products (
-              id, name, short_name, price, original_price, currency, icon_name, color, badge
-            )
-          `)
-          .eq("user_id", user.id),
-        10000,
-        "refreshCart"
-      );
-
-      if (error) {
-        console.error(LOG_PREFIX, "refreshCart error:", error.message, error.code);
-      } else if (data) {
-        const mapped = data
-          .filter((item: any) => item.product !== null)
-          .map((item: any) => ({
-            id: item.id,
-            product_id: item.product_id,
-            quantity: item.quantity,
-            product: item.product,
-          }));
-        console.log(LOG_PREFIX, "Cart loaded:", mapped.length, "items");
-        setItems(mapped);
+      const res = await fetch("/api/cart");
+      if (res.ok) {
+        const data = await res.json();
+        setItems(data.items || []);
       }
-    } catch (err: any) {
-      console.error(LOG_PREFIX, "refreshCart failed:", err.message);
+    } catch (err) {
+      console.error("Error fetching cart:", err);
     } finally {
       setLoading(false);
+      setInitialLoaded(true);
     }
-  }, [user, supabase]);
+  }, [user, initialLoaded]);
 
   useEffect(() => {
-    refreshCart();
+    if (!fetchRef.current) {
+      fetchRef.current = true;
+      refreshCart(false);
+    }
   }, [refreshCart]);
 
-  const addToCart = useCallback(async (productId: string) => {
-    if (!user) {
-      console.warn(LOG_PREFIX, "addToCart: no user — user must sign in first");
-      return;
-    }
-    if (!supabase) {
-      console.error(LOG_PREFIX, "addToCart: supabase is null");
-      return;
-    }
+  // Reset on user change
+  useEffect(() => {
+    fetchRef.current = false;
+    setInitialLoaded(false);
+    setLoading(true);
+  }, [user]);
 
-    // Prevent duplicate simultaneous calls for the same product
-    if (addingToCart.current.has(productId)) {
-      console.log(LOG_PREFIX, "addToCart: already adding product:", productId, "— skipping duplicate");
-      return;
-    }
-
+  const addToCart = useCallback(async (productId: string, productData?: Partial<CartItem["product"]>) => {
+    if (!user) return;
     const existing = items.find((item) => item.product_id === productId);
-    if (existing) {
-      console.log(LOG_PREFIX, "addToCart: product already in cart:", productId);
-      return;
-    }
+    if (existing) return;
 
-    // Verify session is still valid before making the call
-    const sessionValid = await verifySession();
-    if (!sessionValid) {
-      console.error(LOG_PREFIX, "addToCart: session expired, cannot add to cart");
-      alert("Your session has expired. Please sign in again.");
-      window.location.href = "/login";
-      return;
-    }
+    // Mark as adding
+    setAddingProductIds((prev) => new Set(prev).add(productId));
 
-    addingToCart.current.add(productId);
-    console.log(LOG_PREFIX, "Adding to cart:", productId, "for user:", user.email);
+    // Optimistic: add a temporary item immediately so UI updates fast
+    const tempId = `temp-${productId}`;
+    const optimisticItem: CartItem = {
+      id: tempId,
+      product_id: productId,
+      quantity: 1,
+      product: {
+        id: productId,
+        name: productData?.name || "Loading...",
+        short_name: productData?.short_name || "...",
+        price: productData?.price || 0,
+        original_price: productData?.original_price || 0,
+        currency: productData?.currency || "INR",
+        icon_name: productData?.icon_name || "FileSpreadsheet",
+        color: productData?.color || "emerald",
+        badge: productData?.badge || null,
+      },
+    };
+    setItems((prev) => [...prev, optimisticItem]);
 
     try {
-      const { error } = await withTimeout(
-        supabase.from("cart_items").insert({
-          user_id: user.id,
-          product_id: productId,
-          quantity: 1,
-        }),
-        10000,
-        "addToCart"
-      );
-
-      if (error) {
-        console.error(LOG_PREFIX, "addToCart error:", error.message, error.code);
-        alert("Failed to add to cart: " + error.message);
+      const res = await fetch("/api/cart", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId }),
+      });
+      if (res.ok) {
+        // Refresh in background to get real IDs
+        await refreshCart(true);
       } else {
-        console.log(LOG_PREFIX, "addToCart success, refreshing...");
-        await refreshCart();
+        // Rollback on failure
+        setItems((prev) => prev.filter((item) => item.id !== tempId));
+        const data = await res.json();
+        console.error(data.error || "Failed to add to cart");
       }
-    } catch (err: any) {
-      console.error(LOG_PREFIX, "addToCart failed:", err.message);
-      alert("Failed to add to cart. Please try again.");
+    } catch (err) {
+      // Rollback on error
+      setItems((prev) => prev.filter((item) => item.id !== tempId));
+      console.error("Error adding to cart:", err);
     } finally {
-      addingToCart.current.delete(productId);
+      setAddingProductIds((prev) => {
+        const next = new Set(prev);
+        next.delete(productId);
+        return next;
+      });
     }
-  }, [user, supabase, items, refreshCart, verifySession]);
+  }, [user, items, refreshCart]);
 
   const removeFromCart = useCallback(async (cartItemId: string) => {
-    if (!user || !supabase) {
-      console.warn(LOG_PREFIX, "removeFromCart: no user or supabase");
-      return;
-    }
-    console.log(LOG_PREFIX, "Removing from cart:", cartItemId);
-    try {
-      const { error } = await withTimeout(
-        supabase
-          .from("cart_items")
-          .delete()
-          .eq("id", cartItemId)
-          .eq("user_id", user.id),
-        10000,
-        "removeFromCart"
-      );
+    if (!user) return;
 
-      if (error) {
-        console.error(LOG_PREFIX, "removeFromCart error:", error.message);
-      } else {
-        console.log(LOG_PREFIX, "removeFromCart success, refreshing...");
-        await refreshCart();
+    // Mark as removing
+    setRemovingItemIds((prev) => new Set(prev).add(cartItemId));
+
+    // Optimistic: remove immediately
+    const removedItem = items.find((item) => item.id === cartItemId);
+    setItems((prev) => prev.filter((item) => item.id !== cartItemId));
+
+    try {
+      const res = await fetch(`/api/cart?id=${cartItemId}`, { method: "DELETE" });
+      if (!res.ok && removedItem) {
+        // Rollback on failure
+        setItems((prev) => [...prev, removedItem]);
       }
-    } catch (err: any) {
-      console.error(LOG_PREFIX, "removeFromCart failed:", err.message);
+    } catch (err) {
+      // Rollback on error
+      if (removedItem) {
+        setItems((prev) => [...prev, removedItem]);
+      }
+      console.error("Error removing from cart:", err);
+    } finally {
+      setRemovingItemIds((prev) => {
+        const next = new Set(prev);
+        next.delete(cartItemId);
+        return next;
+      });
     }
-  }, [user, supabase, refreshCart]);
+  }, [user, items]);
 
   const clearCart = useCallback(async () => {
-    if (!user || !supabase) {
-      console.warn(LOG_PREFIX, "clearCart: no user or supabase");
-      return;
-    }
-    console.log(LOG_PREFIX, "Clearing cart for user:", user.email);
+    if (!user) return;
+    const previousItems = [...items];
+    setItems([]); // Optimistic
     try {
-      await withTimeout(
-        supabase.from("cart_items").delete().eq("user_id", user.id),
-        10000,
-        "clearCart"
-      );
-      setItems([]);
-    } catch (err: any) {
-      console.error(LOG_PREFIX, "clearCart failed:", err.message);
+      await fetch("/api/cart?all=true", { method: "DELETE" });
+    } catch (err) {
+      setItems(previousItems); // Rollback
+      console.error("Error clearing cart:", err);
     }
-  }, [user, supabase]);
+  }, [user, items]);
 
   const isInCart = useCallback((productId: string) => {
-    return items.some((item) => item.product_id === productId);
-  }, [items]);
+    return items.some((item) => item.product_id === productId) || addingProductIds.has(productId);
+  }, [items, addingProductIds]);
 
   const itemCount = items.length;
-  const totalAmount = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  const totalAmount = items.reduce((sum, item) => sum + Number(item.product.price) * item.quantity, 0);
 
   const value = useMemo(() => ({
-    items,
-    itemCount,
-    totalAmount,
-    loading,
-    addToCart,
-    removeFromCart,
-    clearCart,
-    refreshCart,
+    items, itemCount, totalAmount, loading,
+    addingProductIds, removingItemIds,
+    addToCart, removeFromCart, clearCart,
+    refreshCart: () => refreshCart(true),
     isInCart,
-  }), [items, itemCount, totalAmount, loading, addToCart, removeFromCart, clearCart, refreshCart, isInCart]);
+  }), [items, itemCount, totalAmount, loading, addingProductIds, removingItemIds, addToCart, removeFromCart, clearCart, refreshCart, isInCart]);
 
   return (
     <CartContext.Provider value={value}>

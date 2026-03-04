@@ -115,3 +115,72 @@ export const orderItemsRelations = relations(orderItems, ({ one }) => ({
 export const cartItemsRelations = relations(cartItems, ({ one }) => ({
   product: one(products, { fields: [cartItems.productId], references: [products.id] }),
 }));
+
+// ─── Landing Pages ───────────────────────────────────────────────────────────
+export const landingPages = pgTable("landing_pages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  productId: uuid("product_id").notNull(),
+  slug: text("slug").notNull().unique(),
+  isActive: boolean("is_active").notNull().default(true),
+
+  // SEO & Tracking
+  metaTitle: text("meta_title"),
+  metaDescription: text("meta_description"),
+  metaPixelId: text("meta_pixel_id"),
+
+  // Hero
+  heroHeadline: text("hero_headline").notNull(),
+  heroSubheadline: text("hero_subheadline"),
+  heroVideoUrl: text("hero_video_url"),
+  heroImageUrls: jsonb("hero_image_urls").$type<string[]>().default([]),
+  heroCtaText: text("hero_cta_text").default("Buy Now"),
+
+  // Lead Form
+  leadFormEnabled: boolean("lead_form_enabled").default(true),
+  leadFormHeadline: text("lead_form_headline"),
+  leadFormFields: jsonb("lead_form_fields").$type<string[]>().default(["name", "email", "phone"]),
+  leadFormCtaText: text("lead_form_cta_text").default("Get Access Now"),
+  leadFormVideoUrl: text("lead_form_video_url"),
+
+  // Offer/Urgency
+  offerHeadline: text("offer_headline"),
+  offerExpiresAt: timestamp("offer_expires_at", { withTimezone: true }),
+  offerSlotsTotal: integer("offer_slots_total").default(100),
+  offerSlotsUsed: integer("offer_slots_used").default(0),
+  offerUrgencyText: text("offer_urgency_text"),
+
+  // Social Proof & FAQ (JSONB)
+  testimonials: jsonb("testimonials").$type<{ name: string; text: string; avatar_url?: string; rating?: number }[]>().default([]),
+  stats: jsonb("stats").$type<{ label: string; value: string }[]>().default([]),
+  faqs: jsonb("faqs").$type<{ question: string; answer: string }[]>().default([]),
+  features: jsonb("features").$type<{ title: string; description: string; image_url?: string; video_url?: string }[]>().default([]),
+  sections: jsonb("sections").$type<{ type: string; content: string; image_url?: string }[]>().default([]),
+
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ─── Leads ───────────────────────────────────────────────────────────────────
+export const leads = pgTable("leads", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  landingPageId: uuid("landing_page_id").notNull(),
+  productId: uuid("product_id").notNull(),
+  name: text("name"),
+  email: text("email"),
+  phone: text("phone"),
+  utmSource: text("utm_source"),
+  utmMedium: text("utm_medium"),
+  utmCampaign: text("utm_campaign"),
+  converted: boolean("converted").default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ─── Landing Page Relations ──────────────────────────────────────────────────
+export const landingPagesRelations = relations(landingPages, ({ one, many }) => ({
+  product: one(products, { fields: [landingPages.productId], references: [products.id] }),
+  leads: many(leads),
+}));
+
+export const leadsRelations = relations(leads, ({ one }) => ({
+  landingPage: one(landingPages, { fields: [leads.landingPageId], references: [landingPages.id] }),
+}));

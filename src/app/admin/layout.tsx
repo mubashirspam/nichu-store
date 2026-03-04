@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Package, ShoppingCart, Tag, Users, Sparkles, ArrowLeft, Sun, Moon } from "lucide-react";
+import { LayoutDashboard, Package, ShoppingCart, Tag, Users, Sparkles, ArrowLeft, Sun, Moon, FileText, UserCheck } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const navItems = [
@@ -11,6 +11,8 @@ const navItems = [
   { href: "/admin/products", label: "Products", icon: Package },
   { href: "/admin/orders", label: "Orders", icon: ShoppingCart },
   { href: "/admin/offer-codes", label: "Offer Codes", icon: Tag },
+  { href: "/admin/landing-pages", label: "Landing Pages", icon: FileText },
+  { href: "/admin/leads", label: "Leads", icon: UserCheck },
   { href: "/admin/users", label: "Users", icon: Users },
 ];
 

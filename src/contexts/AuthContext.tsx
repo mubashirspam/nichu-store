@@ -19,6 +19,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const sessionUser = session?.user || null;
 
+  // Sync user to profiles table on sign-in (ensures Google users appear in admin)
+  useEffect(() => {
+    if (!sessionUser) return;
+    fetch("/api/auth/sync", { method: "POST" }).catch(() => {});
+  }, [sessionUser?.id]);
+
   useEffect(() => {
     if (!sessionUser) {
       setIsAdmin(false);

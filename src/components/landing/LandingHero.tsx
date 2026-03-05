@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import { Play, Clock, Flame, ArrowRight, ShieldCheck, Zap } from "lucide-react";
 
 interface LandingHeroProps {
@@ -108,13 +109,23 @@ export default function LandingHero({
 
         <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
           {/* LEFT — Text + Price + CTA */}
-          <div className="order-2 lg:order-1 text-center lg:text-left">
+          <motion.div
+            initial={{ opacity: 0, x: -30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.7, ease: "easeOut" }}
+            className="order-2 lg:order-1 text-center lg:text-left"
+          >
             {/* Discount badge */}
             {discount > 0 && (
-              <div className="inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold px-3 py-1.5 rounded-full mb-5 uppercase tracking-wider">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.3, duration: 0.4 }}
+                className="inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold px-3 py-1.5 rounded-full mb-5 uppercase tracking-wider"
+              >
                 <Zap size={14} />
                 {discount}% OFF — Limited Time
-              </div>
+              </motion.div>
             )}
 
             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-[3.4rem] font-extrabold text-white leading-[1.12] tracking-tight">
@@ -122,38 +133,56 @@ export default function LandingHero({
             </h1>
 
             {subheadline && (
-              <p className="mt-5 text-base sm:text-lg text-[#9CA3AF] leading-relaxed max-w-lg mx-auto lg:mx-0">
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.4, duration: 0.5 }}
+                className="mt-5 text-base sm:text-lg text-[#9CA3AF] leading-relaxed max-w-lg mx-auto lg:mx-0"
+              >
                 {subheadline}
-              </p>
+              </motion.p>
             )}
 
             {/* Price block */}
             {price && (
-              <div className="mt-7 flex items-end gap-3 justify-center lg:justify-start">
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5, duration: 0.4 }}
+                className="mt-7 flex items-end gap-3 justify-center lg:justify-start"
+              >
                 <span className="text-4xl sm:text-5xl font-black text-white tracking-tight">₹{price}</span>
                 {originalPrice && originalPrice > price && (
                   <span className="text-xl text-[#6B7280] line-through pb-1">₹{originalPrice}</span>
                 )}
-              </div>
+              </motion.div>
             )}
 
             {/* CTA */}
-            <button
+            <motion.button
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6, duration: 0.4 }}
               onClick={onCtaClick}
               className="mt-7 w-full sm:w-auto group inline-flex items-center justify-center gap-2.5 bg-white text-[#0B0D11] font-bold text-base sm:text-lg px-8 sm:px-12 py-4 rounded-xl transition-all duration-200 hover:bg-gray-100 hover:shadow-lg hover:shadow-white/10 active:scale-[0.98]"
             >
               {ctaText}
               <ArrowRight size={18} className="group-hover:translate-x-0.5 transition-transform" />
-            </button>
+            </motion.button>
 
             {/* Trust line */}
-            <div className="mt-5 flex items-center gap-4 justify-center lg:justify-start text-[#6B7280] text-xs">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.8, duration: 0.4 }}
+              className="mt-5 flex items-center gap-4 justify-center lg:justify-start text-[#6B7280] text-xs"
+            >
               <span className="flex items-center gap-1"><ShieldCheck size={13} /> Secure Checkout</span>
               <span>•</span>
               <span>Instant Access</span>
               <span>•</span>
               <span>7-Day Guarantee</span>
-            </div>
+            </motion.div>
 
             {/* Slots gauge — compact inline */}
             {offerSlotsUsed > 0 && (
@@ -167,10 +196,15 @@ export default function LandingHero({
                 </div>
               </div>
             )}
-          </div>
+          </motion.div>
 
           {/* RIGHT — Media */}
-          <div className="order-1 lg:order-2">
+          <motion.div
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.7, delay: 0.2, ease: "easeOut" }}
+            className="order-1 lg:order-2"
+          >
             <div className="relative">
               {/* Glow behind media */}
               <div className="absolute -inset-4 bg-gradient-to-br from-violet-600/20 to-indigo-600/20 rounded-3xl blur-2xl opacity-60" />
@@ -208,7 +242,7 @@ export default function LandingHero({
                 </div>
               )}
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
     </section>

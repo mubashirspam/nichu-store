@@ -156,7 +156,7 @@ export default function CartPage() {
 
             const verifyData = await verifyRes.json();
             if (verifyData.verified) {
-              window.location.href = `/orders/${data.dbOrderId}/?success=true`;
+              window.location.href = "/orders?success=true";
             } else {
               window.location.href = "/failed/";
             }
@@ -193,20 +193,20 @@ export default function CartPage() {
     <div className={`min-h-screen ${d ? "bg-[#0a0a0f] text-white" : "bg-gray-50 text-gray-900"}`}>
 
       <div className={`${d ? "border-b border-gray-800 bg-[#0a0a0f]/80" : "bg-white border-b border-gray-200"} glass`}>
-        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center">
               <Sparkles size={14} className="text-white" />
             </div>
-            <span className="text-lg font-bold">Nichu<span className="gradient-text">Store</span></span>
+            <span className="text-base sm:text-lg font-bold">Nichu<span className="gradient-text">Store</span></span>
           </Link>
-          <h1 className="text-lg font-bold flex items-center gap-2">
-            <ShoppingCart size={20} /> Cart ({itemCount})
+          <h1 className="text-base sm:text-lg font-bold flex items-center gap-2">
+            <ShoppingCart size={18} className="sm:w-5 sm:h-5" /> <span className="hidden xs:inline">Cart</span> ({itemCount})
           </h1>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-6 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {showSkeleton ? (
           /* Skeleton loading state */
           <div className="grid lg:grid-cols-3 gap-8">
@@ -229,25 +229,25 @@ export default function CartPage() {
             </Link>
           </div>
         ) : (
-          <div className="grid lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 space-y-4">
+          <div className="grid lg:grid-cols-3 gap-6 sm:gap-8">
+            <div className="lg:col-span-2 space-y-3 sm:space-y-4">
               {items.map((item) => {
                 const colors = colorMap[item.product.color] || colorMap.emerald;
                 const isRemoving = removingItemIds.has(item.id);
                 const isTemp = item.id.startsWith("temp-");
                 return (
-                  <div key={item.id} className={`rounded-2xl p-5 flex items-center gap-4 transition-all duration-200 ${isRemoving ? "opacity-40 scale-[0.98]" : ""} ${isTemp ? "opacity-70" : ""} ${d ? "bg-gray-900/60 border border-gray-800" : "bg-white border border-gray-200"}`}>
-                    <div className={`w-14 h-14 ${d ? colors.darkBg : colors.bg} rounded-xl flex items-center justify-center ${d ? colors.darkText : colors.text} flex-shrink-0`}>
-                      {iconMap[item.product.icon_name] || <FileSpreadsheet size={24} />}
+                  <div key={item.id} className={`rounded-xl sm:rounded-2xl p-4 sm:p-5 flex items-center gap-3 sm:gap-4 transition-all duration-200 ${isRemoving ? "opacity-40 scale-[0.98]" : ""} ${isTemp ? "opacity-70" : ""} ${d ? "bg-gray-900/60 border border-gray-800" : "bg-white border border-gray-200"}`}>
+                    <div className={`w-12 h-12 sm:w-14 sm:h-14 ${d ? colors.darkBg : colors.bg} rounded-lg sm:rounded-xl flex items-center justify-center ${d ? colors.darkText : colors.text} flex-shrink-0`}>
+                      {iconMap[item.product.icon_name] || <FileSpreadsheet size={20} className="sm:w-6 sm:h-6" />}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-bold truncate">{item.product.name}</h3>
-                      <p className={`text-sm ${d ? "text-gray-500" : "text-gray-500"}`}>
+                      <h3 className="font-bold text-sm sm:text-base truncate">{item.product.name}</h3>
+                      <p className={`text-xs sm:text-sm ${d ? "text-gray-500" : "text-gray-500"}`}>
                         {isTemp ? "Adding to cart..." : "Digital Download · Excel"}
                       </p>
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <div className="font-bold">₹{item.product.price}</div>
+                      <div className="font-bold text-sm sm:text-base">₹{item.product.price}</div>
                       <div className={`text-xs line-through ${d ? "text-gray-600" : "text-gray-400"}`}>₹{item.product.original_price}</div>
                     </div>
                     <button
@@ -256,9 +256,9 @@ export default function CartPage() {
                       className={`flex-shrink-0 p-2 rounded-lg transition-all ${isRemoving ? "text-red-400" : "text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"} disabled:cursor-not-allowed`}
                     >
                       {isRemoving ? (
-                        <Loader2 size={18} className="animate-spin" />
+                        <Loader2 size={16} className="sm:w-[18px] sm:h-[18px] animate-spin" />
                       ) : (
-                        <Trash2 size={18} />
+                        <Trash2 size={16} className="sm:w-[18px] sm:h-[18px]" />
                       )}
                     </button>
                   </div>
@@ -267,7 +267,7 @@ export default function CartPage() {
             </div>
 
             <div className="lg:col-span-1">
-              <div className={`rounded-2xl p-6 sticky top-24 ${d ? "bg-gray-900/60 border border-gray-800" : "bg-white border border-gray-200"}`}>
+              <div className={`rounded-xl sm:rounded-2xl p-4 sm:p-6 lg:sticky lg:top-24 ${d ? "bg-gray-900/60 border border-gray-800" : "bg-white border border-gray-200"}`}>
                 <h3 className="font-bold text-lg mb-4">Order Summary</h3>
                 <div className="space-y-3 text-sm mb-4">
                   <div className="flex justify-between">
@@ -306,8 +306,8 @@ export default function CartPage() {
                 </div>
 
                 <button onClick={handleCheckout} disabled={processing || items.length === 0}
-                  className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-violet-500/25 transition-all disabled:opacity-50">
-                  <CreditCard size={18} /> {processing ? "Processing..." : `Pay ₹${finalAmount}`}
+                  className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white py-3 sm:py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-violet-500/25 transition-all disabled:opacity-50 text-sm sm:text-base">
+                  <CreditCard size={16} className="sm:w-[18px] sm:h-[18px]" /> {processing ? "Processing..." : `Pay ₹${finalAmount}`}
                 </button>
 
                 <div className={`flex items-center justify-center gap-1.5 mt-3 text-xs ${d ? "text-gray-600" : "text-gray-400"}`}>

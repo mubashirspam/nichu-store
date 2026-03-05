@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 
 interface FAQ {
@@ -33,8 +34,12 @@ export default function LandingFAQ({ faqs }: LandingFAQProps) {
           {faqs.map((faq, i) => {
             const isOpen = openIndex === i;
             return (
-              <div
+              <motion.div
                 key={i}
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.3, delay: i * 0.05 }}
                 className={`border rounded-xl overflow-hidden transition-all duration-200 ${
                   isOpen
                     ? "bg-[#111318] border-violet-500/20"
@@ -51,10 +56,20 @@ export default function LandingFAQ({ faqs }: LandingFAQProps) {
                     className={`text-[#6B7280] flex-shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180 text-violet-400" : ""}`}
                   />
                 </button>
-                <div className={`overflow-hidden transition-all duration-200 ${isOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"}`}>
-                  <div className="px-5 pb-4 text-[#9CA3AF] text-sm leading-relaxed">{faq.answer}</div>
-                </div>
-              </div>
+                <AnimatePresence>
+                  {isOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-5 pb-4 text-[#9CA3AF] text-sm leading-relaxed">{faq.answer}</div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
             );
           })}
         </div>

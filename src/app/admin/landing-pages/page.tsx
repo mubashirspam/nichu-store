@@ -83,23 +83,36 @@ export default function AdminLandingPagesPage() {
   };
 
   const openEditForm = async (page: LandingPage) => {
-    // Fetch full details
-    const res = await fetch("/api/admin/landing-pages");
-    if (!res.ok) return;
-    // We need to get full data, so let's fetch the full page data directly via the list
-    // For now, use what we have and fetch separately for JSONB fields
+    // Fetch full details with all fields
+    const res = await fetch(`/api/admin/landing-pages?id=${page.id}`);
+    if (!res.ok) { alert("Failed to load landing page details"); return; }
+    const full = await res.json();
     setEditing(page);
     setForm({
-      product_id: page.productId, slug: page.slug, is_active: page.isActive,
-      meta_title: page.metaTitle || "", meta_description: "", meta_pixel_id: "",
-      hero_headline: page.heroHeadline, hero_subheadline: "", hero_video_url: "",
-      hero_image_urls: "", hero_cta_text: "Buy Now",
-      lead_form_enabled: true, lead_form_headline: "",
-      lead_form_fields: "name,email,phone", lead_form_cta_text: "Get Access Now",
-      lead_form_video_url: "",
-      offer_headline: "", offer_expires_at: "",
-      offer_slots_total: 100, offer_slots_used: 0, offer_urgency_text: "",
-      testimonials: "", stats: "", faqs: "",
+      product_id: full.productId || page.productId,
+      slug: full.slug || page.slug,
+      is_active: full.isActive ?? page.isActive,
+      meta_title: full.metaTitle || "",
+      meta_description: full.metaDescription || "",
+      meta_pixel_id: full.metaPixelId || "",
+      hero_headline: full.heroHeadline || page.heroHeadline,
+      hero_subheadline: full.heroSubheadline || "",
+      hero_video_url: full.heroVideoUrl || "",
+      hero_image_urls: Array.isArray(full.heroImageUrls) ? full.heroImageUrls.join("\n") : "",
+      hero_cta_text: full.heroCtaText || "Buy Now",
+      lead_form_enabled: full.leadFormEnabled ?? true,
+      lead_form_headline: full.leadFormHeadline || "",
+      lead_form_fields: Array.isArray(full.leadFormFields) ? full.leadFormFields.join(",") : "name,email,phone",
+      lead_form_cta_text: full.leadFormCtaText || "Get Access Now",
+      lead_form_video_url: full.leadFormVideoUrl || "",
+      offer_headline: full.offerHeadline || "",
+      offer_expires_at: full.offerExpiresAt ? new Date(full.offerExpiresAt).toISOString().slice(0, 16) : "",
+      offer_slots_total: full.offerSlotsTotal || 100,
+      offer_slots_used: full.offerSlotsUsed || 0,
+      offer_urgency_text: full.offerUrgencyText || "",
+      testimonials: full.testimonials?.length ? JSON.stringify(full.testimonials, null, 2) : "",
+      stats: full.stats?.length ? JSON.stringify(full.stats, null, 2) : "",
+      faqs: full.faqs?.length ? JSON.stringify(full.faqs, null, 2) : "",
     });
     setActiveTab("basic");
     setShowForm(true);
@@ -137,17 +150,23 @@ export default function AdminLandingPagesPage() {
       try { payload.stats = form.stats ? JSON.parse(form.stats) : []; } catch { payload.stats = []; }
       try { payload.faqs = form.faqs ? JSON.parse(form.faqs) : []; } catch { payload.faqs = []; }
 
+      let res;
       if (editing) {
         payload.id = editing.id;
-        await fetch("/api/admin/landing-pages", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        res = await fetch("/api/admin/landing-pages", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       } else {
-        await fetch("/api/admin/landing-pages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        res = await fetch("/api/admin/landing-pages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      }
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to save");
       }
 
       setShowForm(false);
       fetchPages();
-    } catch (err) {
-      alert("Failed to save landing page");
+    } catch (err: any) {
+      alert(err.message || "Failed to save landing page");
     } finally {
       setSaving(false);
     }
@@ -195,9 +214,9 @@ export default function AdminLandingPagesPage() {
 
             {/* Tabs */}
             <div className="flex gap-2 mb-6 flex-wrap">
-              {["basic", "hero", "lead_form", "offer", "content"].map((tab) => (
+              {["basic", "hero", "offer", "content"].map((tab) => (
                 <button key={tab} onClick={() => setActiveTab(tab)} className={tabCls(activeTab === tab)}>
-                  {tab === "basic" ? "Basic" : tab === "hero" ? "Hero" : tab === "lead_form" ? "Lead Form" : tab === "offer" ? "Offer" : "Content"}
+                  {tab === "basic" ? "Basic" : tab === "hero" ? "Hero" : tab === "offer" ? "Offer" : "Content"}
                 </button>
               ))}
             </div>
@@ -257,32 +276,6 @@ export default function AdminLandingPagesPage() {
                 <div className="col-span-2">
                   <label className={labelCls}>Image URLs (one per line)</label>
                   <textarea value={form.hero_image_urls} onChange={(e) => setForm({ ...form, hero_image_urls: e.target.value })} rows={3} placeholder={"https://example.com/image1.jpg\nhttps://example.com/image2.jpg"} className={inputCls} />
-                </div>
-              </div>
-            )}
-
-            {/* Lead Form Tab */}
-            {activeTab === "lead_form" && (
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2 flex items-center gap-2">
-                  <input type="checkbox" id="lf_enabled" checked={form.lead_form_enabled} onChange={(e) => setForm({ ...form, lead_form_enabled: e.target.checked })} className="rounded" />
-                  <label htmlFor="lf_enabled" className={`text-sm ${d ? "text-gray-300" : "text-gray-700"}`}>Enable Lead Form</label>
-                </div>
-                <div className="col-span-2">
-                  <label className={labelCls}>Form Headline</label>
-                  <input type="text" value={form.lead_form_headline} onChange={(e) => setForm({ ...form, lead_form_headline: e.target.value })} placeholder="Get Instant Access" className={inputCls} />
-                </div>
-                <div>
-                  <label className={labelCls}>Fields (comma separated)</label>
-                  <input type="text" value={form.lead_form_fields} onChange={(e) => setForm({ ...form, lead_form_fields: e.target.value })} placeholder="name,email,phone" className={inputCls} />
-                </div>
-                <div>
-                  <label className={labelCls}>CTA Text</label>
-                  <input type="text" value={form.lead_form_cta_text} onChange={(e) => setForm({ ...form, lead_form_cta_text: e.target.value })} className={inputCls} />
-                </div>
-                <div className="col-span-2">
-                  <label className={labelCls}>Video URL (shown alongside form)</label>
-                  <input type="text" value={form.lead_form_video_url} onChange={(e) => setForm({ ...form, lead_form_video_url: e.target.value })} placeholder="https://youtube.com/watch?v=..." className={inputCls} />
                 </div>
               </div>
             )}

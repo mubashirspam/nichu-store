@@ -12,12 +12,30 @@ async function checkAdmin() {
   return userId;
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     if (!(await checkAdmin())) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+
+    // Single page with all fields for editing
+    if (id) {
+      const [page] = await db
+        .select()
+        .from(landingPages)
+        .where(eq(landingPages.id, id))
+        .limit(1);
+
+      if (!page) {
+        return NextResponse.json({ error: "Landing page not found" }, { status: 404 });
+      }
+      return NextResponse.json(page);
+    }
+
+    // List view with summary fields
     const pages = await db
       .select({
         id: landingPages.id,

@@ -27,11 +27,12 @@ interface ProductsProps {
   products: Product[];
   isInCart: (id: string) => boolean;
   addingProductIds?: Set<string>;
+  handleBuyNow: (product: Product) => void;
   handleAddToCart: (product: Product) => void;
   onPreview: (product: Product) => void;
 }
 
-export default function Products({ dark: d, loading, products, isInCart, addingProductIds, handleAddToCart, onPreview }: ProductsProps) {
+export default function Products({ dark: d, loading, products, isInCart, addingProductIds, handleBuyNow, handleAddToCart, onPreview }: ProductsProps) {
   return (
     <section id="products" className={`py-20 px-6 ${d ? "bg-gray-900/30" : "bg-gray-50/80"}`}>
       <div className="max-w-7xl mx-auto">
@@ -71,18 +72,24 @@ export default function Products({ dark: d, loading, products, isInCart, addingP
                     ))}
                   </ul>
                   <div className="flex gap-2">
+                    <button onClick={() => handleBuyNow(product)}
+                      className={`flex-1 py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all bg-gradient-to-r ${c.btn} text-white shadow-lg`}>
+                      Buy Now
+                    </button>
                     <button onClick={() => handleAddToCart(product)} disabled={inCart || isAdding}
-                      className={`flex-1 py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all ${inCart ? (d ? "bg-gray-800 text-gray-400" : "bg-gray-100 text-gray-500") : `bg-gradient-to-r ${c.btn} text-white shadow-lg`} ${isAdding ? "opacity-80" : ""}`}>
+                      className={`px-3 py-3 rounded-xl transition-all ${inCart ? (d ? "bg-gray-800 text-gray-400" : "bg-gray-100 text-gray-500") : (d ? "bg-gray-800 hover:bg-gray-700 text-gray-400" : "bg-gray-100 hover:bg-gray-200 text-gray-500")} ${isAdding ? "opacity-80" : ""}`}
+                      title={inCart ? "In Cart" : "Add to Cart"}>
                       {isAdding ? (
-                        <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Adding...</>
+                        <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
                       ) : inCart ? (
-                        <><CheckCircle size={15} /> In Cart</>
+                        <CheckCircle size={16} />
                       ) : (
-                        <><Plus size={15} /> Add to Cart</>
+                        <Plus size={16} />
                       )}
                     </button>
                     <button onClick={() => onPreview(product)}
-                      className={`px-3 py-3 rounded-xl transition-all ${d ? "bg-gray-800 hover:bg-gray-700 text-gray-400" : "bg-gray-100 hover:bg-gray-200 text-gray-500"}`}>
+                      className={`px-3 py-3 rounded-xl transition-all ${d ? "bg-gray-800 hover:bg-gray-700 text-gray-400" : "bg-gray-100 hover:bg-gray-200 text-gray-500"}`}
+                      title="Preview">
                       <Eye size={16} />
                     </button>
                   </div>

@@ -45,18 +45,27 @@ export default function StorePage() {
     });
   }, []);
 
-  const handleAddToCartAndNavigate = useCallback(async (product: Product) => {
-    // Don't redirect to login if session is still loading (e.g. after OAuth redirect)
+  // Buy Now: Direct to checkout (no cart, instant purchase flow)
+  const handleBuyNow = useCallback(async (product: Product) => {
     if (authLoading) return;
-    if (!user) { 
-      router.push("/auth/sign-in");
-      return; 
+    if (!user) {
+      router.push(`/auth/sign-in?callbackURL=${encodeURIComponent(`/checkout?product=${product.id}`)}`);
+      return;
     }
-    // Navigate immediately for snappy UX
-    router.push("/cart");
-    // Add to cart in background with product data for optimistic rendering
+    // Direct to checkout with product ID
+    router.push(`/checkout?product=${product.id}`);
+  }, [user, authLoading, router]);
+
+  // Add to Cart: Add item and navigate to cart page
+  const handleAddToCart = useCallback(async (product: Product) => {
+    if (authLoading) return;
+    if (!user) {
+      router.push("/auth/sign-in");
+      return;
+    }
+    // Add to cart first
     if (!isInCart(product.id)) {
-      addToCart(product.id, {
+      await addToCart(product.id, {
         name: product.name,
         short_name: product.short_name,
         price: product.price,
@@ -67,6 +76,8 @@ export default function StorePage() {
         badge: product.badge || null,
       });
     }
+    // Then navigate to cart
+    router.push("/cart");
   }, [user, authLoading, addToCart, isInCart, router]);
 
   const mainProduct = products[0] || null;
@@ -93,7 +104,7 @@ export default function StorePage() {
         dark={d}
         mainProduct={mainProduct}
         loading={loading}
-        handleBuyNow={handleAddToCartAndNavigate}
+        handleBuyNow={handleBuyNow}
         onPreview={(p) => { setSelectedProduct(p); setShowPreview(true); }}
       />
 
@@ -104,7 +115,8 @@ export default function StorePage() {
         products={products}
         isInCart={isInCart}
         addingProductIds={addingProductIds}
-        handleAddToCart={handleAddToCartAndNavigate}
+        handleBuyNow={handleBuyNow}
+        handleAddToCart={handleAddToCart}
         onPreview={(p) => { setSelectedProduct(p); setShowPreview(true); }}
       />
 
@@ -112,7 +124,7 @@ export default function StorePage() {
       <FeaturedProduct
         dark={d}
         mainProduct={mainProduct}
-        handleBuyNow={handleAddToCartAndNavigate}
+        handleBuyNow={handleBuyNow}
       />
 
       {/* 5. Previews */}
@@ -133,7 +145,7 @@ export default function StorePage() {
       {/* 10. Final CTA */}
       <FinalCTA
         mainProduct={mainProduct}
-        handleBuyNow={handleAddToCartAndNavigate}
+        handleBuyNow={handleBuyNow}
       />
 
       {/* 11. Footer */}
@@ -145,7 +157,7 @@ export default function StorePage() {
         showPreview={showPreview}
         selectedProduct={selectedProduct}
         setShowPreview={setShowPreview}
-        handleBuyNow={handleAddToCartAndNavigate}
+        handleBuyNow={handleBuyNow}
       />
 
       {/* Scroll to Top */}

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { motion } from "framer-motion";
 import { Star, Quote } from "lucide-react";
 
 interface Testimonial {
@@ -32,8 +33,12 @@ export default function LandingTestimonials({ testimonials }: LandingTestimonial
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {testimonials.map((t, i) => (
-            <div
+            <motion.div
               key={i}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.4, delay: i * 0.1 }}
               className="group bg-[#111318] border border-white/[0.06] rounded-xl p-6 transition-all duration-300 hover:border-violet-500/20 hover:bg-[#13161d]"
             >
               <Quote size={20} className="text-violet-500/20 mb-4" />
@@ -59,7 +64,7 @@ export default function LandingTestimonials({ testimonials }: LandingTestimonial
                 )}
                 <span className="text-white text-sm font-medium">{t.name}</span>
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>

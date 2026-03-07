@@ -2,7 +2,7 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import { Star, Quote } from "lucide-react";
+import { Star, Quote, Heart, Users } from "lucide-react";
 
 interface Testimonial {
   name: string;
@@ -23,13 +23,35 @@ export default function LandingTestimonials({ testimonials }: LandingTestimonial
       <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
       <div className="absolute bottom-0 left-0 w-[400px] h-[300px] bg-violet-600/8 rounded-full blur-[120px]" />
 
+      {/* Floating SVG Illustrations */}
+      <motion.div
+        animate={{ y: [0, -18, 0], rotate: [0, -8, 0] }}
+        transition={{ duration: 11, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute top-20 right-16 opacity-8"
+      >
+        <Heart size={65} className="text-pink-400" strokeWidth={1} />
+      </motion.div>
+      <motion.div
+        animate={{ y: [0, 22, 0], x: [0, 12, 0] }}
+        transition={{ duration: 13, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+        className="absolute bottom-24 right-20 opacity-8"
+      >
+        <Users size={58} className="text-violet-400" strokeWidth={1} />
+      </motion.div>
+
       <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6">
-        <div className="text-center mb-14">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="text-center mb-14"
+        >
           <p className="text-violet-400 text-sm font-semibold uppercase tracking-widest mb-3">Social Proof</p>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
             What Our Customers Say
           </h2>
-        </div>
+        </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {testimonials.map((t, i) => (
@@ -39,7 +61,8 @@ export default function LandingTestimonials({ testimonials }: LandingTestimonial
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.4, delay: i * 0.1 }}
-              className="group bg-[#111318] border border-white/[0.06] rounded-xl p-6 transition-all duration-300 hover:border-violet-500/20 hover:bg-[#13161d]"
+              whileHover={{ y: -5, scale: 1.02 }}
+              className="group bg-[#111318] border border-white/[0.06] rounded-xl p-6 transition-all duration-300 hover:border-violet-500/20 hover:bg-[#13161d] hover:shadow-xl hover:shadow-violet-500/10"
             >
               <Quote size={20} className="text-violet-500/20 mb-4" />
 

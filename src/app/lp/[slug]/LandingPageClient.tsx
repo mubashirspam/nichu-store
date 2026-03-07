@@ -10,6 +10,7 @@ import LandingHero from "@/components/landing/LandingHero";
 import FeaturesTimeline from "@/components/landing/FeaturesTimeline";
 import LandingTestimonials from "@/components/landing/LandingTestimonials";
 import LandingFAQ from "@/components/landing/LandingFAQ";
+import ImageContentSections from "@/components/landing/ImageContentSections";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface PageData {
@@ -36,6 +37,7 @@ interface PageData {
   stats: { label: string; value: string }[];
   faqs: { question: string; answer: string }[];
   features: { title: string; description: string; image_url?: string; video_url?: string }[];
+  sections: { title: string; content: string; image_url?: string; layout?: "left" | "right" }[];
 }
 
 interface ProductData {
@@ -264,6 +266,11 @@ export default function LandingPageClient({ page, product }: LandingPageClientPr
       {/* 3. Features Timeline */}
       {page.features.length > 0 && (
         <FeaturesTimeline features={page.features} sectionTitle="What's Inside" />
+      )}
+
+      {/* 3.5 Image Content Sections */}
+      {page.sections && page.sections.length > 0 && (
+        <ImageContentSections sections={page.sections} />
       )}
 
       {/* 4. Testimonials */}

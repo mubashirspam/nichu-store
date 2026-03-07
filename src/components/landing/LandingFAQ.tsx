@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, HelpCircle, MessageCircle } from "lucide-react";
 
 interface FAQ {
   question: string;
@@ -22,13 +22,35 @@ export default function LandingFAQ({ faqs }: LandingFAQProps) {
     <section className="relative py-20 sm:py-28 bg-[#0B0D11] overflow-hidden">
       <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
 
+      {/* Floating SVG Illustrations */}
+      <motion.div
+        animate={{ y: [0, -16, 0], rotate: [0, 6, 0] }}
+        transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute top-24 left-12 opacity-8"
+      >
+        <HelpCircle size={62} className="text-indigo-400" strokeWidth={1} />
+      </motion.div>
+      <motion.div
+        animate={{ y: [0, 18, 0], x: [0, -8, 0] }}
+        transition={{ duration: 11, repeat: Infinity, ease: "easeInOut", delay: 1.2 }}
+        className="absolute bottom-32 right-16 opacity-8"
+      >
+        <MessageCircle size={56} className="text-purple-400" strokeWidth={1} />
+      </motion.div>
+
       <div className="relative z-10 max-w-2xl mx-auto px-4 sm:px-6">
-        <div className="text-center mb-14">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="text-center mb-14"
+        >
           <p className="text-violet-400 text-sm font-semibold uppercase tracking-widest mb-3">FAQ</p>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
             Got Questions?
           </h2>
-        </div>
+        </motion.div>
 
         <div className="space-y-2">
           {faqs.map((faq, i) => {

@@ -1,7 +1,8 @@
 "use client";
 
 import React from "react";
-import { CheckCircle } from "lucide-react";
+import { motion } from "framer-motion";
+import { CheckCircle, Sparkles, Zap, Target } from "lucide-react";
 
 interface Feature {
   title: string;
@@ -28,14 +29,36 @@ export default function FeaturesTimeline({ features, sectionTitle = "What's Insi
       {/* Dot grid bg */}
       <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
 
+      {/* Floating SVG Illustrations */}
+      <motion.div
+        animate={{ y: [0, -15, 0], rotate: [0, 8, 0] }}
+        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute top-32 right-10 opacity-8"
+      >
+        <Sparkles size={60} className="text-violet-400" strokeWidth={1} />
+      </motion.div>
+      <motion.div
+        animate={{ y: [0, 20, 0], x: [0, -10, 0] }}
+        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 1.5 }}
+        className="absolute bottom-40 left-10 opacity-8"
+      >
+        <Zap size={55} className="text-indigo-400" strokeWidth={1} />
+      </motion.div>
+
       <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6">
         {/* Section header */}
-        <div className="text-center mb-16 sm:mb-20">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="text-center mb-16 sm:mb-20"
+        >
           <p className="text-violet-400 text-sm font-semibold uppercase tracking-widest mb-3">Features</p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight">
             {sectionTitle}
           </h2>
-        </div>
+        </motion.div>
 
         {/* Timeline */}
         <div className="relative">
@@ -49,13 +72,32 @@ export default function FeaturesTimeline({ features, sectionTitle = "What's Insi
               const hasMedia = feature.image_url || feature.video_url;
 
               return (
-                <div key={i} className="relative">
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 40 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: "-100px" }}
+                  transition={{ duration: 0.6, delay: i * 0.1 }}
+                  className="relative"
+                >
                   {/* Timeline dot */}
-                  <div className="absolute left-6 sm:left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-violet-500 ring-4 ring-[#0B0D11] z-10" />
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    whileInView={{ scale: 1 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.4, delay: i * 0.1 + 0.2 }}
+                    className="absolute left-6 sm:left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-violet-500 ring-4 ring-[#0B0D11] z-10"
+                  />
 
                   <div className={`sm:grid sm:grid-cols-2 sm:gap-12 items-center ${isLeft ? "" : "sm:direction-rtl"}`}>
                     {/* Text side */}
-                    <div className={`pl-16 sm:pl-0 ${isLeft ? "sm:text-right sm:pr-12" : "sm:text-left sm:pl-12 sm:order-2"} mb-6 sm:mb-0`}>
+                    <motion.div
+                      initial={{ opacity: 0, x: isLeft ? 40 : -40 }}
+                      whileInView={{ opacity: 1, x: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ duration: 0.6, delay: i * 0.1 + 0.3 }}
+                      className={`pl-16 sm:pl-0 ${isLeft ? "sm:text-right sm:pr-12" : "sm:text-left sm:pl-12 sm:order-2"} mb-6 sm:mb-0`}
+                    >
                       <div className={`inline-flex items-center gap-2 text-violet-400 text-xs font-bold uppercase tracking-wider mb-3 ${isLeft ? "sm:flex-row-reverse" : ""}`}>
                         <CheckCircle size={14} />
                         <span>Step {i + 1}</span>
@@ -66,10 +108,16 @@ export default function FeaturesTimeline({ features, sectionTitle = "What's Insi
                       <p className="text-[#9CA3AF] text-sm sm:text-base leading-relaxed">
                         {feature.description}
                       </p>
-                    </div>
+                    </motion.div>
 
                     {/* Media side */}
-                    <div className={`pl-16 sm:pl-0 ${isLeft ? "sm:pl-12" : "sm:pr-12 sm:order-1"}`}>
+                    <motion.div
+                      initial={{ opacity: 0, x: isLeft ? -40 : 40 }}
+                      whileInView={{ opacity: 1, x: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ duration: 0.6, delay: i * 0.1 + 0.4 }}
+                      className={`pl-16 sm:pl-0 ${isLeft ? "sm:pl-12" : "sm:pr-12 sm:order-1"}`}
+                    >
                       {youtubeId ? (
                         <div className="rounded-xl overflow-hidden border border-white/10 aspect-video bg-[#111318]">
                           <iframe
@@ -95,9 +143,9 @@ export default function FeaturesTimeline({ features, sectionTitle = "What's Insi
                           </div>
                         </div>
                       )}
-                    </div>
+                    </motion.div>
                   </div>
-                </div>
+                </motion.div>
               );
             })}
           </div>

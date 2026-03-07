@@ -19,7 +19,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NichuStore — Premium Excel Trackers & Planners | by Nizamudheen KC",
+  title: "Premium Excel Trackers & Planners | by Nizamudheen KC",
   description:
     "Beautiful Excel spreadsheets to track fitness, expenses, habits, projects & more. Auto-generated charts, instant download. Starting at ₹149.",
 };

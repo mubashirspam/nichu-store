@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Play, Clock, Flame, ArrowRight, ShieldCheck, Zap } from "lucide-react";
+import { Play, Clock, Flame, ArrowRight, ShieldCheck, Zap, Sparkles, Star, TrendingUp, Award } from "lucide-react";
 
 interface LandingHeroProps {
   headline: string;
@@ -84,6 +84,36 @@ export default function LandingHero({
       {/* Accent glows */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-gradient-to-b from-violet-600/15 via-transparent to-transparent blur-3xl" />
       <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-gradient-to-tl from-indigo-600/10 to-transparent blur-3xl" />
+
+      {/* Floating SVG Illustrations */}
+      <motion.div
+        animate={{ y: [0, -20, 0], rotate: [0, 5, 0] }}
+        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute top-20 left-10 opacity-10"
+      >
+        <Sparkles size={80} className="text-violet-400" strokeWidth={1} />
+      </motion.div>
+      <motion.div
+        animate={{ y: [0, 15, 0], rotate: [0, -5, 0] }}
+        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+        className="absolute top-40 right-20 opacity-10"
+      >
+        <Star size={60} className="text-indigo-400" strokeWidth={1} />
+      </motion.div>
+      <motion.div
+        animate={{ y: [0, -25, 0], x: [0, 10, 0] }}
+        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+        className="absolute bottom-32 left-20 opacity-10"
+      >
+        <TrendingUp size={70} className="text-purple-400" strokeWidth={1} />
+      </motion.div>
+      <motion.div
+        animate={{ y: [0, 20, 0], rotate: [0, 10, 0] }}
+        transition={{ duration: 9, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+        className="absolute bottom-20 right-32 opacity-10"
+      >
+        <Award size={65} className="text-pink-400" strokeWidth={1} />
+      </motion.div>
 
       <div className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 py-12 md:py-16">
         {/* Top urgency banner */}
@@ -212,7 +242,7 @@ export default function LandingHero({
               {youtubeId ? (
                 <div className="relative rounded-2xl overflow-hidden border border-white/10 aspect-video bg-[#111318]">
                   <iframe
-                    src={`https://www.youtube.com/embed/${youtubeId}?autoplay=0&rel=0`}
+                    src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1&mute=1&controls=0&modestbranding=1&showinfo=0&rel=0&loop=1&playlist=${youtubeId}`}
                     title="Product Video"
                     className="w-full h-full"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

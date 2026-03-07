@@ -154,7 +154,7 @@ export const landingPages = pgTable("landing_pages", {
   stats: jsonb("stats").$type<{ label: string; value: string }[]>().default([]),
   faqs: jsonb("faqs").$type<{ question: string; answer: string }[]>().default([]),
   features: jsonb("features").$type<{ title: string; description: string; image_url?: string; video_url?: string }[]>().default([]),
-  sections: jsonb("sections").$type<{ type: string; content: string; image_url?: string }[]>().default([]),
+  sections: jsonb("sections").$type<{ title: string; content: string; image_url?: string; layout?: "left" | "right" }[]>().default([]),
 
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

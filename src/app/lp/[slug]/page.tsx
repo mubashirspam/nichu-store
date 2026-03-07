@@ -73,6 +73,7 @@ export default async function LandingPage({ params }: Props) {
     stats: (data.page.stats || []) as { label: string; value: string }[],
     faqs: (data.page.faqs || []) as { question: string; answer: string }[],
     features: (data.page.features || []) as { title: string; description: string; image_url?: string; video_url?: string }[],
+    sections: ((data.page.sections || []) as unknown) as { title: string; content: string; image_url?: string; layout?: "left" | "right" }[],
   };
 
   const productData = {

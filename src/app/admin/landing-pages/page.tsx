@@ -45,7 +45,7 @@ export default function AdminLandingPagesPage() {
     lead_form_video_url: "",
     offer_headline: "", offer_expires_at: "",
     offer_slots_total: 100, offer_slots_used: 0, offer_urgency_text: "",
-    testimonials: "", stats: "", faqs: "",
+    testimonials: "", stats: "", faqs: "", sections: "",
   });
 
   useEffect(() => { setDark(document.documentElement.classList.contains("dark")); }, []);
@@ -76,7 +76,7 @@ export default function AdminLandingPagesPage() {
       lead_form_video_url: "",
       offer_headline: "", offer_expires_at: "",
       offer_slots_total: 100, offer_slots_used: 0, offer_urgency_text: "",
-      testimonials: "", stats: "", faqs: "",
+      testimonials: "", stats: "", faqs: "", sections: "",
     });
     setActiveTab("basic");
     setShowForm(true);
@@ -110,9 +110,10 @@ export default function AdminLandingPagesPage() {
       offer_slots_total: full.offerSlotsTotal || 100,
       offer_slots_used: full.offerSlotsUsed || 0,
       offer_urgency_text: full.offerUrgencyText || "",
-      testimonials: full.testimonials?.length ? JSON.stringify(full.testimonials, null, 2) : "",
-      stats: full.stats?.length ? JSON.stringify(full.stats, null, 2) : "",
-      faqs: full.faqs?.length ? JSON.stringify(full.faqs, null, 2) : "",
+      testimonials: Array.isArray(full.testimonials) ? JSON.stringify(full.testimonials, null, 2) : "",
+      stats: Array.isArray(full.stats) ? JSON.stringify(full.stats, null, 2) : "",
+      faqs: Array.isArray(full.faqs) ? JSON.stringify(full.faqs, null, 2) : "",
+      sections: Array.isArray(full.sections) ? JSON.stringify(full.sections, null, 2) : "",
     });
     setActiveTab("basic");
     setShowForm(true);
@@ -149,6 +150,7 @@ export default function AdminLandingPagesPage() {
       try { payload.testimonials = form.testimonials ? JSON.parse(form.testimonials) : []; } catch { payload.testimonials = []; }
       try { payload.stats = form.stats ? JSON.parse(form.stats) : []; } catch { payload.stats = []; }
       try { payload.faqs = form.faqs ? JSON.parse(form.faqs) : []; } catch { payload.faqs = []; }
+      try { payload.sections = form.sections ? JSON.parse(form.sections) : []; } catch { payload.sections = []; }
 
       let res;
       if (editing) {
@@ -214,9 +216,9 @@ export default function AdminLandingPagesPage() {
 
             {/* Tabs */}
             <div className="flex gap-2 mb-6 flex-wrap">
-              {["basic", "hero", "offer", "content"].map((tab) => (
+              {["basic", "hero", "offer", "content", "sections"].map((tab) => (
                 <button key={tab} onClick={() => setActiveTab(tab)} className={tabCls(activeTab === tab)}>
-                  {tab === "basic" ? "Basic" : tab === "hero" ? "Hero" : tab === "offer" ? "Offer" : "Content"}
+                  {tab === "basic" ? "Basic" : tab === "hero" ? "Hero" : tab === "offer" ? "Offer" : tab === "content" ? "Content" : "Image Sections"}
                 </button>
               ))}
             </div>
@@ -320,6 +322,30 @@ export default function AdminLandingPagesPage() {
                 <div>
                   <label className={labelCls}>FAQs (JSON array)</label>
                   <textarea value={form.faqs} onChange={(e) => setForm({ ...form, faqs: e.target.value })} rows={5} placeholder={'[\n  {"question": "How does it work?", "answer": "Simply download and start tracking..."},\n  {"question": "Is there a refund?", "answer": "Yes, 7-day money back guarantee"}\n]'} className={inputCls} />
+                </div>
+              </div>
+            )}
+
+            {/* Image Sections Tab */}
+            {activeTab === "sections" && (
+              <div className="space-y-4">
+                <div className={`p-4 rounded-lg ${d ? "bg-blue-500/10 border border-blue-500/20" : "bg-blue-50 border border-blue-200"}`}>
+                  <p className={`text-sm ${d ? "text-blue-300" : "text-blue-700"}`}>
+                    <strong>Image + Content Sections:</strong> Add multiple image sections with content. Each section will be displayed with animations and SVG illustrations.
+                  </p>
+                </div>
+                <div>
+                  <label className={labelCls}>Sections (JSON array)</label>
+                  <textarea 
+                    value={form.sections} 
+                    onChange={(e) => setForm({ ...form, sections: e.target.value })} 
+                    rows={12} 
+                    placeholder={'[\n  {\n    "title": "Amazing Feature",\n    "content": "This is the description of the feature that makes your product stand out.",\n    "image_url": "https://example.com/image.jpg",\n    "layout": "left"\n  },\n  {\n    "title": "Another Great Feature",\n    "content": "More details about why customers love this.",\n    "image_url": "https://example.com/image2.jpg",\n    "layout": "right"\n  }\n]\n\nLayout options: "left" (image on left) or "right" (image on right)'} 
+                    className={inputCls} 
+                  />
+                  <p className={`text-xs mt-2 ${d ? "text-gray-500" : "text-gray-400"}`}>
+                    Each section should have: title, content, image_url, and layout ("left" or "right")
+                  </p>
                 </div>
               </div>
             )}

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { ShoppingCart, Trash2, Tag, ArrowLeft, Sparkles, ShieldCheck, CreditCard, TrendingUp, Apple, Ruler, Dumbbell, FileSpreadsheet, Calculator, Wallet, Calendar, Target, Heart, BarChart3, Loader2 } from "lucide-react";
+import { ShoppingCart, Trash2, ArrowLeft, ArrowRight, Sparkles, ShieldCheck, TrendingUp, Apple, Ruler, Dumbbell, FileSpreadsheet, Calculator, Wallet, Calendar, Target, Heart, BarChart3, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -26,8 +26,8 @@ const colorMap: Record<string, { bg: string; text: string; darkBg: string; darkT
 function CartItemSkeleton({ dark }: { dark: boolean }) {
   const d = dark;
   return (
-    <div className={`rounded-2xl p-5 flex items-center gap-4 animate-pulse ${d ? "bg-gray-900/60 border border-gray-800" : "bg-white border border-gray-200"}`}>
-      <div className={`w-14 h-14 rounded-xl flex-shrink-0 ${d ? "bg-gray-800" : "bg-gray-200"}`} />
+    <div className={`rounded-2xl p-4 sm:p-5 flex items-center gap-3 sm:gap-4 animate-pulse ${d ? "bg-gray-900/60 border border-gray-800" : "bg-white border border-gray-200"}`}>
+      <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl flex-shrink-0 ${d ? "bg-gray-800" : "bg-gray-200"}`} />
       <div className="flex-1 min-w-0 space-y-2">
         <div className={`h-4 rounded w-3/4 ${d ? "bg-gray-800" : "bg-gray-200"}`} />
         <div className={`h-3 rounded w-1/2 ${d ? "bg-gray-800/60" : "bg-gray-100"}`} />
@@ -44,7 +44,7 @@ function CartItemSkeleton({ dark }: { dark: boolean }) {
 function OrderSummarySkeleton({ dark }: { dark: boolean }) {
   const d = dark;
   return (
-    <div className={`rounded-2xl p-6 sticky top-24 animate-pulse ${d ? "bg-gray-900/60 border border-gray-800" : "bg-white border border-gray-200"}`}>
+    <div className={`rounded-2xl p-5 sm:p-6 sticky top-24 animate-pulse ${d ? "bg-gray-900/60 border border-gray-800" : "bg-white border border-gray-200"}`}>
       <div className={`h-5 rounded w-1/2 mb-4 ${d ? "bg-gray-800" : "bg-gray-200"}`} />
       <div className="space-y-3 mb-4">
         <div className="flex justify-between">
@@ -65,13 +65,6 @@ export default function CartPage() {
   const router = useRouter();
   const { user } = useAuth();
   const { items, itemCount, totalAmount, removeFromCart, loading: cartLoading, removingItemIds } = useCart();
-  const [offerCode, setOfferCode] = useState("");
-  const [offerDiscount, setOfferDiscount] = useState(0);
-  const [offerMessage, setOfferMessage] = useState("");
-  const [offerError, setOfferError] = useState("");
-  const [offerApplied, setOfferApplied] = useState(false);
-  const [checkingCode, setCheckingCode] = useState(false);
-  const [processing, setProcessing] = useState(false);
   const [dark, setDark] = useState(false);
 
   useEffect(() => {
@@ -80,137 +73,38 @@ export default function CartPage() {
 
   const d = dark;
 
-  const handleApplyCode = async () => {
-    if (!offerCode.trim()) return;
-    setCheckingCode(true);
-    setOfferError("");
-    setOfferMessage("");
-
-    try {
-      const res = await fetch("/api/offer-codes/validate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: offerCode, cartTotal: totalAmount }),
-      });
-      const data = await res.json();
-
-      if (res.ok && data.valid) {
-        setOfferDiscount(data.discountAmount);
-        setOfferMessage(data.message);
-        setOfferApplied(true);
-        setOfferError("");
-      } else {
-        setOfferError(data.error || "Invalid code");
-        setOfferDiscount(0);
-        setOfferApplied(false);
-      }
-    } catch {
-      setOfferError("Failed to validate code");
-    } finally {
-      setCheckingCode(false);
-    }
-  };
-
-  const handleCheckout = async () => {
+  const handleContinueToCheckout = () => {
     if (!user) {
-      router.push("/auth/sign-in?callbackURL=/cart");
+      router.push("/auth/sign-in?callbackURL=/checkout?source=cart");
       return;
     }
-
-    setProcessing(true);
-    try {
-      const orderItems = items.map((item) => ({ product_id: item.product_id }));
-      const res = await fetch("/api/orders/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          items: orderItems,
-          offerCode: offerApplied ? offerCode : null,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to create order");
-
-      // Open Razorpay
-      const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
-        amount: data.amount,
-        currency: data.currency,
-        name: "Nizam Store",
-        description: `Order ${data.orderNumber}`,
-        order_id: data.orderId,
-        handler: async function (response: any) {
-          try {
-            const verifyRes = await fetch("/api/orders/verify", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-                dbOrderId: data.dbOrderId,
-                offerCode: offerApplied ? offerCode : null,
-              }),
-            });
-
-            const verifyData = await verifyRes.json();
-            if (verifyData.verified) {
-              window.location.href = "/orders?success=true";
-            } else {
-              window.location.href = "/failed/";
-            }
-          } catch {
-            window.location.href = "/failed/";
-          }
-        },
-        prefill: { email: user.email || "" },
-        theme: { color: "#10b981" },
-        modal: {
-          ondismiss: () => setProcessing(false),
-        },
-      };
-
-      const rzp = new (window as any).Razorpay(options);
-      rzp.on("payment.failed", () => {
-        setProcessing(false);
-        window.location.href = "/failed/";
-      });
-      rzp.open();
-    } catch (error: any) {
-      alert(error.message || "Failed to initiate payment");
-      setProcessing(false);
-    }
+    router.push("/checkout?source=cart");
   };
 
-  const finalAmount = Math.max(totalAmount - offerDiscount, 1);
-
-  // Show skeleton while initial loading, but if we already have items show them
   const showSkeleton = cartLoading && items.length === 0;
   const hasItems = items.length > 0;
 
   return (
     <div className={`min-h-screen ${d ? "bg-[#0a0a0f] text-white" : "bg-gray-50 text-gray-900"}`}>
-
-      <div className={`${d ? "border-b border-gray-800 bg-[#0a0a0f]/80" : "bg-white border-b border-gray-200"} glass`}>
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+      {/* Header */}
+      <div className={`sticky top-0 z-30 ${d ? "border-b border-gray-800 bg-[#0a0a0f]/80 backdrop-blur-xl" : "bg-white/80 backdrop-blur-xl border-b border-gray-200"}`}>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center">
               <Sparkles size={14} className="text-white" />
             </div>
             <span className="text-base sm:text-lg font-bold">Nichu<span className="gradient-text">Store</span></span>
           </Link>
-          <h1 className="text-base sm:text-lg font-bold flex items-center gap-2">
-            <ShoppingCart size={18} className="sm:w-5 sm:h-5" /> <span className="hidden xs:inline">Cart</span> ({itemCount})
+          <h1 className="text-sm sm:text-lg font-bold flex items-center gap-2">
+            <ShoppingCart size={16} className="sm:w-5 sm:h-5" /> Cart ({itemCount})
           </h1>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-5 sm:py-8">
         {showSkeleton ? (
-          /* Skeleton loading state */
-          <div className="grid lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-8">
+            <div className="lg:col-span-2 space-y-3 sm:space-y-4">
               <CartItemSkeleton dark={d} />
               <CartItemSkeleton dark={d} />
               <CartItemSkeleton dark={d} />
@@ -220,45 +114,48 @@ export default function CartPage() {
             </div>
           </div>
         ) : !hasItems ? (
-          <div className="text-center py-20">
-            <ShoppingCart size={64} className={`mx-auto mb-4 ${d ? "text-gray-700" : "text-gray-300"}`} />
-            <h2 className="text-2xl font-bold mb-2">Your cart is empty</h2>
-            <p className={`mb-6 ${d ? "text-gray-500" : "text-gray-500"}`}>Add some templates to get started</p>
-            <Link href="/" className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-8 py-3 rounded-xl font-semibold inline-flex items-center gap-2 shadow-lg shadow-violet-500/25 transition-all">
+          <div className="text-center py-16 sm:py-20">
+            <ShoppingCart size={48} className={`mx-auto mb-4 sm:w-16 sm:h-16 ${d ? "text-gray-700" : "text-gray-300"}`} />
+            <h2 className="text-xl sm:text-2xl font-bold mb-2">Your cart is empty</h2>
+            <p className={`mb-6 text-sm sm:text-base ${d ? "text-gray-500" : "text-gray-500"}`}>Add some templates to get started</p>
+            <Link href="/" className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-6 sm:px-8 py-2.5 sm:py-3 rounded-xl font-semibold inline-flex items-center gap-2 shadow-lg shadow-violet-500/25 transition-all text-sm sm:text-base">
               <ArrowLeft size={16} /> Browse Products
             </Link>
           </div>
         ) : (
-          <div className="grid lg:grid-cols-3 gap-6 sm:gap-8">
-            <div className="lg:col-span-2 space-y-3 sm:space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-8">
+            {/* Cart Items */}
+            <div className="lg:col-span-2 space-y-3">
               {items.map((item) => {
                 const colors = colorMap[item.product.color] || colorMap.emerald;
                 const isRemoving = removingItemIds.has(item.id);
                 const isTemp = item.id.startsWith("temp-");
                 return (
-                  <div key={item.id} className={`rounded-xl sm:rounded-2xl p-4 sm:p-5 flex items-center gap-3 sm:gap-4 transition-all duration-200 ${isRemoving ? "opacity-40 scale-[0.98]" : ""} ${isTemp ? "opacity-70" : ""} ${d ? "bg-gray-900/60 border border-gray-800" : "bg-white border border-gray-200"}`}>
-                    <div className={`w-12 h-12 sm:w-14 sm:h-14 ${d ? colors.darkBg : colors.bg} rounded-lg sm:rounded-xl flex items-center justify-center ${d ? colors.darkText : colors.text} flex-shrink-0`}>
-                      {iconMap[item.product.icon_name] || <FileSpreadsheet size={20} className="sm:w-6 sm:h-6" />}
+                  <div key={item.id} className={`rounded-xl sm:rounded-2xl p-3 sm:p-5 flex items-center gap-3 sm:gap-4 transition-all duration-200 ${isRemoving ? "opacity-40 scale-[0.98]" : ""} ${isTemp ? "opacity-70" : ""} ${d ? "bg-gray-900/60 border border-gray-800" : "bg-white border border-gray-200"}`}>
+                    <div className={`w-10 h-10 sm:w-14 sm:h-14 ${d ? colors.darkBg : colors.bg} rounded-lg sm:rounded-xl flex items-center justify-center ${d ? colors.darkText : colors.text} flex-shrink-0 [&>svg]:w-5 [&>svg]:h-5 sm:[&>svg]:w-6 sm:[&>svg]:h-6`}>
+                      {iconMap[item.product.icon_name] || <FileSpreadsheet size={20} />}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-sm sm:text-base truncate">{item.product.name}</h3>
-                      <p className={`text-xs sm:text-sm ${d ? "text-gray-500" : "text-gray-500"}`}>
-                        {isTemp ? "Adding to cart..." : "Digital Download · Excel"}
+                      <h3 className="font-bold text-xs sm:text-base truncate">{item.product.name}</h3>
+                      <p className={`text-[10px] sm:text-sm ${d ? "text-gray-500" : "text-gray-500"}`}>
+                        {isTemp ? "Adding..." : "Digital Download"}
                       </p>
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <div className="font-bold text-sm sm:text-base">₹{item.product.price}</div>
-                      <div className={`text-xs line-through ${d ? "text-gray-600" : "text-gray-400"}`}>₹{item.product.original_price}</div>
+                      <div className="font-bold text-xs sm:text-base">₹{item.product.price}</div>
+                      {Number(item.product.original_price) > Number(item.product.price) && (
+                        <div className={`text-[10px] sm:text-xs line-through ${d ? "text-gray-600" : "text-gray-400"}`}>₹{item.product.original_price}</div>
+                      )}
                     </div>
                     <button
                       onClick={() => removeFromCart(item.id)}
                       disabled={isRemoving || isTemp}
-                      className={`flex-shrink-0 p-2 rounded-lg transition-all ${isRemoving ? "text-red-400" : "text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"} disabled:cursor-not-allowed`}
+                      className={`flex-shrink-0 p-1.5 sm:p-2 rounded-lg transition-all ${isRemoving ? "text-red-400" : "text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"} disabled:cursor-not-allowed`}
                     >
                       {isRemoving ? (
-                        <Loader2 size={16} className="sm:w-[18px] sm:h-[18px] animate-spin" />
+                        <Loader2 size={14} className="sm:w-[18px] sm:h-[18px] animate-spin" />
                       ) : (
-                        <Trash2 size={16} className="sm:w-[18px] sm:h-[18px]" />
+                        <Trash2 size={14} className="sm:w-[18px] sm:h-[18px]" />
                       )}
                     </button>
                   </div>
@@ -266,58 +163,55 @@ export default function CartPage() {
               })}
             </div>
 
+            {/* Order Summary */}
             <div className="lg:col-span-1">
               <div className={`rounded-xl sm:rounded-2xl p-4 sm:p-6 lg:sticky lg:top-24 ${d ? "bg-gray-900/60 border border-gray-800" : "bg-white border border-gray-200"}`}>
-                <h3 className="font-bold text-lg mb-4">Order Summary</h3>
-                <div className="space-y-3 text-sm mb-4">
+                <h3 className="font-bold text-base sm:text-lg mb-4">Order Summary</h3>
+                <div className="space-y-3 text-sm mb-5">
                   <div className="flex justify-between">
-                    <span className={d ? "text-gray-400" : "text-gray-500"}>Subtotal ({itemCount} items)</span>
+                    <span className={d ? "text-gray-400" : "text-gray-500"}>Subtotal ({itemCount} {itemCount === 1 ? "item" : "items"})</span>
                     <span className="font-medium">₹{totalAmount}</span>
                   </div>
-                  {offerApplied && offerDiscount > 0 && (
-                    <div className="flex justify-between text-violet-500">
-                      <span>Discount</span>
-                      <span className="font-medium">-₹{offerDiscount}</span>
-                    </div>
-                  )}
                   <div className={`pt-3 flex justify-between text-base ${d ? "border-t border-gray-800" : "border-t border-gray-100"}`}>
                     <span className="font-bold">Total</span>
-                    <span className="font-bold">₹{finalAmount}</span>
+                    <span className="font-bold">₹{totalAmount}</span>
                   </div>
                 </div>
 
-                <div className="mb-4">
-                  <label className={`text-xs font-medium mb-1 block ${d ? "text-gray-500" : "text-gray-500"}`}>Offer Code</label>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Tag size={14} className={`absolute left-3 top-1/2 -translate-y-1/2 ${d ? "text-gray-600" : "text-gray-400"}`} />
-                      <input type="text" placeholder="Enter code" value={offerCode}
-                        onChange={(e) => { setOfferCode(e.target.value.toUpperCase()); if (offerApplied) { setOfferApplied(false); setOfferDiscount(0); setOfferMessage(""); } }}
-                        disabled={offerApplied}
-                        className={`w-full pl-9 pr-3 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 ${d ? "bg-gray-800 border border-gray-700 text-white disabled:bg-gray-800/50" : "border border-gray-200 disabled:bg-gray-50"}`} />
-                    </div>
-                    <button onClick={handleApplyCode} disabled={checkingCode || offerApplied || !offerCode.trim()}
-                      className={`px-4 py-2.5 rounded-lg text-sm font-medium disabled:opacity-40 transition-colors ${d ? "bg-white text-gray-900 hover:bg-gray-200" : "bg-gray-900 text-white hover:bg-gray-800"}`}>
-                      {checkingCode ? "..." : offerApplied ? "Applied" : "Apply"}
-                    </button>
-                  </div>
-                  {offerMessage && <p className="text-xs text-violet-500 mt-1">{offerMessage}</p>}
-                  {offerError && <p className="text-xs text-red-500 mt-1">{offerError}</p>}
-                </div>
-
-                <button onClick={handleCheckout} disabled={processing || items.length === 0}
-                  className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white py-3 sm:py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-violet-500/25 transition-all disabled:opacity-50 text-sm sm:text-base">
-                  <CreditCard size={16} className="sm:w-[18px] sm:h-[18px]" /> {processing ? "Processing..." : `Pay ₹${finalAmount}`}
+                <button
+                  onClick={handleContinueToCheckout}
+                  disabled={items.length === 0}
+                  className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white py-3 sm:py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-violet-500/25 transition-all disabled:opacity-50 text-sm sm:text-base"
+                >
+                  Continue to Checkout <ArrowRight size={16} className="sm:w-[18px] sm:h-[18px]" />
                 </button>
 
-                <div className={`flex items-center justify-center gap-1.5 mt-3 text-xs ${d ? "text-gray-600" : "text-gray-400"}`}>
-                  <ShieldCheck size={12} /> Secure payment via Razorpay
+                <div className={`flex items-center justify-center gap-1.5 mt-3 text-[10px] sm:text-xs ${d ? "text-gray-600" : "text-gray-400"}`}>
+                  <ShieldCheck size={12} /> Secure checkout
                 </div>
               </div>
             </div>
           </div>
         )}
       </div>
+
+      {/* Mobile sticky bottom bar */}
+      {hasItems && (
+        <div className={`fixed bottom-0 left-0 right-0 z-40 lg:hidden ${d ? "bg-[#0a0a0f]/95 border-t border-gray-800 backdrop-blur-xl" : "bg-white/95 border-t border-gray-200 backdrop-blur-xl"}`}>
+          <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+            <div>
+              <p className={`text-[10px] ${d ? "text-gray-500" : "text-gray-400"}`}>{itemCount} {itemCount === 1 ? "item" : "items"}</p>
+              <p className="font-bold text-base">₹{totalAmount}</p>
+            </div>
+            <button
+              onClick={handleContinueToCheckout}
+              className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white py-2.5 px-6 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-violet-500/25 transition-all text-sm"
+            >
+              Checkout <ArrowRight size={14} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

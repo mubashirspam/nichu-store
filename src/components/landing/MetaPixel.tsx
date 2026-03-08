@@ -6,8 +6,11 @@ interface MetaPixelProps {
   pixelId: string | null;
 }
 
+const DEFAULT_PIXEL_ID = "679891645180554";
+
 export default function MetaPixel({ pixelId }: MetaPixelProps) {
-  if (!pixelId) return null;
+  const activePixelId = pixelId || DEFAULT_PIXEL_ID;
+  if (!activePixelId) return null;
 
   return (
     <>
@@ -22,7 +25,7 @@ export default function MetaPixel({ pixelId }: MetaPixelProps) {
             t.src=v;s=b.getElementsByTagName(e)[0];
             s.parentNode.insertBefore(t,s)}(window, document,'script',
             'https://connect.facebook.net/en_US/fbevents.js');
-            fbq('init', '${pixelId}');
+            fbq('init', '${activePixelId}');
             fbq('track', 'PageView');
           `,
         }}
@@ -32,7 +35,7 @@ export default function MetaPixel({ pixelId }: MetaPixelProps) {
           height="1"
           width="1"
           style={{ display: "none" }}
-          src={`https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1`}
+          src={`https://www.facebook.com/tr?id=${activePixelId}&ev=PageView&noscript=1`}
           alt=""
         />
       </noscript>

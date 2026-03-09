@@ -1,0 +1,16 @@
+{
+  "git": {
+    "deploymentEnabled": {
+      "main": true,
+      "staging": true
+    }
+  },
+  "env": {
+    "NEXT_PUBLIC_APP_URL": "https://app.marketingnizam.com"
+  },
+  "build": {
+    "env": {
+      "NODE_VERSION": "20"
+    }
+  }
+}

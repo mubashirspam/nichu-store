@@ -2,16 +2,21 @@
 
 Digital product store 
 
-## Live Site
-- **Store:** https://app.marketingnizam.com
+## Live Sites
+- **Production:** https://app.marketingnizam.com
+- **Staging:** https://app.staging.marketingnizam.com
 - **Main Site:** https://marketingnizam.com
 
 ## Tech Stack
-- **Framework:** Next.js 15 (Static Export)
+- **Framework:** Next.js 15 App Router
+- **Database:** Neon (Serverless PostgreSQL)
+- **ORM:** Drizzle ORM
+- **Auth:** Neon Auth (Better Auth)
+- **Storage:** Vercel Blob
 - **Styling:** Tailwind CSS v4
 - **Animations:** Framer Motion
 - **Payment:** Razorpay
-- **Hosting:** Netlify/Vercel
+- **Hosting:** Vercel
 
 ## Quick Start
 
@@ -33,7 +38,13 @@ npm run build
 - `src/app/refund/page.tsx` - Refund Policy (no refund)
 
 ## Deployment
-See [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) for complete deployment instructions.
+
+### Staging Environment Setup
+- **Quick Setup:** See [QUICK_STAGING_SETUP.md](./QUICK_STAGING_SETUP.md) (~30 min)
+- **Detailed Guide:** See [STAGING_SETUP.md](./STAGING_SETUP.md)
+
+### Architecture
+- **Full Architecture:** See [ARCHITECTURE.md](./ARCHITECTURE.md)
 
 ## Product Configuration
 Edit the `PRODUCT` object in `src/app/page.tsx`:

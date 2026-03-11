@@ -11,5 +11,6 @@ export const config = {
     '/checkout/:path*',
     '/admin/:path*',
     '/account/:path*',
+    '/tracker/:path*',
   ],
 };

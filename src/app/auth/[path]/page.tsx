@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Sparkles, Mail, Lock, User, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { authClient } from "@/lib/auth/client";
+import { trackCompleteRegistration } from "@/components/landing/MetaPixel";
 
 export default function AuthPage({ params }: { params: Promise<{ path: string }> }) {
   return (
@@ -52,6 +53,7 @@ function AuthContent({ params }: { params: Promise<{ path: string }> }) {
           name: name || email.split("@")[0],
         });
         if (error) throw new Error(error.message || "Sign up failed");
+        trackCompleteRegistration();
       } else {
         const { error } = await authClient.signIn.email({
           email,

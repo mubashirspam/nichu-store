@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProducts } from "@/contexts/ProductContext";
 import { useCart } from "@/contexts/CartContext";
+import { trackInitiateCheckout, trackPurchase } from "@/components/landing/MetaPixel";
 
 interface CheckoutItem {
   id: string;
@@ -81,6 +82,14 @@ function CheckoutContent() {
   }, [user, authLoading, router]);
 
   const isLoading = authLoading || productsLoading || (source === "cart" && cartLoading);
+
+  // Fire InitiateCheckout once items are loaded and user is authenticated
+  useEffect(() => {
+    if (!isLoading && user && checkoutItems.length > 0) {
+      trackInitiateCheckout(subtotal, checkoutItems.length);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading]);
 
   // Validate offer code
   const handleApplyCode = async () => {
@@ -170,6 +179,7 @@ function CheckoutContent() {
 
             const verifyData = await verifyRes.json();
             if (verifyData.verified) {
+              trackPurchase(finalAmount, response.razorpay_payment_id);
               setSuccess(true);
               // Clear cart if source was cart
               if (source === "cart") {

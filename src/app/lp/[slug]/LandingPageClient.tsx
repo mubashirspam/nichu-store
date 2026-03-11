@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { CreditCard, ArrowRight, ShieldCheck, Lock, Sparkles, Menu, X, ShoppingCart } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import MetaPixel, { trackLead } from "@/components/landing/MetaPixel";
+import MetaPixel, { trackLead, trackViewContent } from "@/components/landing/MetaPixel";
 import LandingHero from "@/components/landing/LandingHero";
 import FeaturesTimeline from "@/components/landing/FeaturesTimeline";
 import LandingTestimonials from "@/components/landing/LandingTestimonials";
@@ -66,6 +66,15 @@ export default function LandingPageClient({ page, product }: LandingPageClientPr
     const onScroll = () => setScrolled(window.scrollY > 80);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Track ViewContent once pixel is ready
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      trackViewContent(product.name, product.price);
+    }, 500);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Silently capture lead when user is logged in

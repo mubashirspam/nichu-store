@@ -7,6 +7,9 @@ import {
   boolean,
   timestamp,
   jsonb,
+  varchar,
+  index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -174,6 +177,108 @@ export const leads = pgTable("leads", {
   converted: boolean("converted").default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ─── Tracker: User Cloud Accounts ────────────────────────────────────────────
+export const userCloudAccounts = pgTable(
+  "user_cloud_accounts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    provider: varchar("provider", { length: 20 }).notNull(), // 'google' | 'microsoft'
+    accessToken: text("access_token").notNull(),
+    refreshToken: text("refresh_token"),
+    tokenExpiresAt: timestamp("token_expires_at", { withTimezone: true }),
+    email: varchar("email", { length: 255 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [uniqueIndex("uq_user_cloud_accounts").on(t.userId, t.provider)]
+);
+
+// ─── Tracker: Master Templates (admin manages) ────────────────────────────────
+export const masterTemplates = pgTable(
+  "master_templates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id),
+    provider: varchar("provider", { length: 20 }).notNull(), // 'google' | 'microsoft'
+    fileId: varchar("file_id", { length: 255 }).notNull(),
+    fileUrl: text("file_url"),
+    trackerType: varchar("tracker_type", { length: 50 }).notNull(), // 'habit' | 'financial' | 'workout' | 'nutrition'
+    version: varchar("version", { length: 20 }).default("1.0"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [uniqueIndex("uq_master_templates").on(t.productId, t.provider)]
+);
+
+// ─── Tracker: User Trackers (cloned templates) ────────────────────────────────
+export const userTrackers = pgTable(
+  "user_trackers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id),
+    cloudAccountId: uuid("cloud_account_id")
+      .notNull()
+      .references(() => userCloudAccounts.id),
+    fileId: varchar("file_id", { length: 255 }).notNull(),
+    fileUrl: text("file_url"),
+    trackerType: varchar("tracker_type", { length: 50 }).notNull(),
+    isActive: boolean("is_active").default(true),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("uq_user_trackers").on(t.userId, t.productId, t.cloudAccountId),
+    index("idx_user_trackers_user").on(t.userId),
+  ]
+);
+
+// ─── Tracker: Sync Logs ───────────────────────────────────────────────────────
+export const syncLogs = pgTable(
+  "sync_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userTrackerId: uuid("user_tracker_id")
+      .notNull()
+      .references(() => userTrackers.id, { onDelete: "cascade" }),
+    action: varchar("action", { length: 50 }).notNull(), // 'write' | 'read' | 'clone' | 'error'
+    data: jsonb("data"),
+    errorMessage: text("error_message"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [index("idx_sync_logs_tracker").on(t.userTrackerId)]
+);
+
+// ─── Tracker Relations ────────────────────────────────────────────────────────
+export const userCloudAccountsRelations = relations(userCloudAccounts, ({ one, many }) => ({
+  profile: one(profiles, { fields: [userCloudAccounts.userId], references: [profiles.id] }),
+  trackers: many(userTrackers),
+}));
+
+export const masterTemplatesRelations = relations(masterTemplates, ({ one }) => ({
+  product: one(products, { fields: [masterTemplates.productId], references: [products.id] }),
+}));
+
+export const userTrackersRelations = relations(userTrackers, ({ one, many }) => ({
+  profile: one(profiles, { fields: [userTrackers.userId], references: [profiles.id] }),
+  product: one(products, { fields: [userTrackers.productId], references: [products.id] }),
+  cloudAccount: one(userCloudAccounts, { fields: [userTrackers.cloudAccountId], references: [userCloudAccounts.id] }),
+  syncLogs: many(syncLogs),
+}));
+
+export const syncLogsRelations = relations(syncLogs, ({ one }) => ({
+  tracker: one(userTrackers, { fields: [syncLogs.userTrackerId], references: [userTrackers.id] }),
+}));
 
 // ─── Landing Page Relations ──────────────────────────────────────────────────
 export const landingPagesRelations = relations(landingPages, ({ one, many }) => ({

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Package, ShoppingCart, Tag, Users, Sparkles, ArrowLeft, Sun, Moon, FileText, UserCheck } from "lucide-react";
+import { LayoutDashboard, Package, ShoppingCart, Tag, Users, Sparkles, ArrowLeft, Sun, Moon, FileText, UserCheck, LayoutGrid, Activity } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const navItems = [
@@ -14,6 +14,9 @@ const navItems = [
   { href: "/admin/landing-pages", label: "Landing Pages", icon: FileText },
   { href: "/admin/leads", label: "Leads", icon: UserCheck },
   { href: "/admin/users", label: "Users", icon: Users },
+  { href: "/admin/templates", label: "Templates", icon: LayoutGrid },
+  { href: "/admin/trackers", label: "Trackers", icon: Activity },
+  { href: "/admin/sync-logs", label: "Sync Logs", icon: Activity },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

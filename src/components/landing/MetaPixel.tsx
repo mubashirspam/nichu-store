@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-const DEFAULT_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID || "679891645180554";
+const DEFAULT_PIXEL_ID = "679891645180554";
 
 interface MetaPixelProps {
   pixelId?: string | null;

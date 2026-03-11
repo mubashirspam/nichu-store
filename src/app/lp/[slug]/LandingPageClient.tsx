@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { CreditCard, ArrowRight, ShieldCheck, Lock, Sparkles, Menu, X, ShoppingCart } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import MetaPixel, { trackLead, trackViewContent } from "@/components/landing/MetaPixel";
+import MetaPixel, { trackLead, trackViewContent, trackInitiateCheckout } from "@/components/landing/MetaPixel";
 import LandingHero from "@/components/landing/LandingHero";
 import FeaturesTimeline from "@/components/landing/FeaturesTimeline";
 import LandingTestimonials from "@/components/landing/LandingTestimonials";
@@ -104,13 +104,16 @@ export default function LandingPageClient({ page, product }: LandingPageClientPr
 
     const checkoutUrl = `/checkout?product=${page.productId}`;
 
+    // Track InitiateCheckout event (user clicked Buy Now)
+    trackInitiateCheckout(product.price, 1);
+
     // Not logged in -> redirect to login, then to checkout (not back to LP)
     if (!user) {
       router.push(`/auth/sign-in?callbackURL=${encodeURIComponent(checkoutUrl)}`);
       return;
     }
 
-    // Capture lead silently
+    // Capture lead silently and track Lead event
     captureLeadSilently();
 
     // Navigate to checkout page (all payment happens there)

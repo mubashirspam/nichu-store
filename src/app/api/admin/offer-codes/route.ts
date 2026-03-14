@@ -21,9 +21,9 @@ export async function GET() {
     }));
 
     return NextResponse.json(mapped);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching offer codes:", error);
-    return NextResponse.json({ error: "Failed" }, { status: 500 });
+    return NextResponse.json({ error: error?.message || "Failed" }, { status: 500 });
   }
 }
 
@@ -46,9 +46,9 @@ export async function POST(req: NextRequest) {
     }).returning();
 
     return NextResponse.json(code);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error creating offer code:", error);
-    return NextResponse.json({ error: "Failed" }, { status: 500 });
+    return NextResponse.json({ error: error?.message || "Failed" }, { status: 500 });
   }
 }
 

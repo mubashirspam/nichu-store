@@ -30,14 +30,21 @@ export function ProductProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const hasFetched = useRef(false);
 
-  const fetchProducts = useCallback(async (showLoading = false) => {
+  const fetchProducts = useCallback(async (showLoading = false, retryCount = 0) => {
     if (showLoading) setLoading(true);
     try {
       const res = await fetch("/api/products");
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
       const data = await res.json();
       if (Array.isArray(data)) setProducts(data);
     } catch (err) {
       console.error("Failed to fetch products:", err);
+      // Retry once after 1 second if it's the first attempt
+      if (retryCount === 0) {
+        setTimeout(() => fetchProducts(false, 1), 1000);
+      }
     } finally {
       setLoading(false);
     }

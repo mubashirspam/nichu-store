@@ -5,17 +5,14 @@ interface Session {
   user?: { id: string; email: string };
 }
 
-const PROTECTED_PATHS = [
-  "/cart",
-  "/orders",
-  "/admin",
-  "/account",
-  "/tracker",
-  "/dashboard",
-];
+// Paths that require a logged-in user
+const USER_PROTECTED = ["/orders", "/account", "/tracker", "/dashboard"];
 
-// Paths that must never require auth (even if they match a protected prefix)
-const PUBLIC_API_PATTERNS = ["/api/webhooks/", "/api/auth/", "/api/checkout/", "/api/lp/"];
+// Admin paths require login (redirects to /admin/login)
+const ADMIN_PREFIX = "/admin";
+
+// Paths that must never require auth
+const PUBLIC_API_PATTERNS = ["/api/webhooks/", "/api/auth/", "/api/checkout/", "/api/lp/", "/api/products"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -25,22 +22,35 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const isProtected = PROTECTED_PATHS.some((p) => pathname.startsWith(p));
-  if (!isProtected) return NextResponse.next();
+  // Admin login page itself is public
+  if (pathname === "/admin/login") return NextResponse.next();
+
+  const isUserProtected = USER_PROTECTED.some((p) => pathname.startsWith(p));
+  const isAdmin = pathname.startsWith(ADMIN_PREFIX);
+
+  if (!isUserProtected && !isAdmin) return NextResponse.next();
 
   // Check Better Auth session via its own API
+  let session: Session | null = null;
   try {
-    const { data: session } = await betterFetch<Session>("/api/auth/get-session", {
+    const { data } = await betterFetch<Session>("/api/auth/get-session", {
       baseURL: request.nextUrl.origin,
       headers: { cookie: request.headers.get("cookie") || "" },
     });
-
-    if (session?.user?.id) return NextResponse.next();
+    session = data;
   } catch {
     // Session fetch failed — treat as unauthenticated
   }
 
-  // Redirect to login
+  if (session?.user?.id) return NextResponse.next();
+
+  // Redirect: admin routes → /admin/login, user routes → /login
+  if (isAdmin) {
+    const adminLoginUrl = new URL("/admin/login", request.url);
+    adminLoginUrl.searchParams.set("callbackURL", pathname);
+    return NextResponse.redirect(adminLoginUrl);
+  }
+
   const loginUrl = new URL("/login", request.url);
   loginUrl.searchParams.set("callbackURL", pathname);
   return NextResponse.redirect(loginUrl);
@@ -48,7 +58,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/cart/:path*",
     "/orders/:path*",
     "/admin/:path*",
     "/account/:path*",

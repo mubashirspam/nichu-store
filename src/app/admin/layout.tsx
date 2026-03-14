@@ -39,6 +39,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const d = dark;
 
+  // Admin login page renders without the sidebar / auth gate
+  if (pathname === "/admin/login") {
+    return <>{children}</>;
+  }
+
   if (loading) {
     return (
       <div className={`min-h-screen flex items-center justify-center ${d ? "bg-[#0a0a0f] text-gray-400" : "bg-gray-50 text-gray-500"}`}>

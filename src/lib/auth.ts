@@ -21,6 +21,12 @@ export const auth = betterAuth({
     },
   }),
 
+  advanced: {
+    database: {
+      generateId: "uuid",
+    },
+  },
+
   emailAndPassword: {
     enabled: true,
   },
@@ -105,23 +111,27 @@ export async function syncProfile(user: {
   name?: string;
   image?: string | null;
 }) {
-  await db
-    .insert(profiles)
-    .values({
-      id: user.id,
-      email: user.email,
-      fullName: user.name || null,
-      avatarUrl: user.image || null,
-      role: "user",
-      authProvider: "better_auth",
-    })
-    .onConflictDoUpdate({
-      target: profiles.id,
-      set: {
+  try {
+    await db
+      .insert(profiles)
+      .values({
+        id: user.id,
         email: user.email,
         fullName: user.name || null,
         avatarUrl: user.image || null,
-        updatedAt: new Date(),
-      },
-    });
+        role: "user",
+        authProvider: "better_auth",
+      })
+      .onConflictDoUpdate({
+        target: profiles.id,
+        set: {
+          email: user.email,
+          fullName: user.name || null,
+          avatarUrl: user.image || null,
+          updatedAt: new Date(),
+        },
+      });
+  } catch (err) {
+    console.error("[syncProfile] Failed:", err);
+  }
 }

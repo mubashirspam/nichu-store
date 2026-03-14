@@ -74,10 +74,6 @@ export default function CartPage() {
   const d = dark;
 
   const handleContinueToCheckout = () => {
-    if (!user) {
-      router.push("/auth/sign-in?callbackURL=/checkout?source=cart");
-      return;
-    }
     router.push("/checkout?source=cart");
   };
 

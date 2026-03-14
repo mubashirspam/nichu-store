@@ -1,5 +1,6 @@
 import {
   pgTable,
+  pgSchema,
   uuid,
   text,
   numeric,
@@ -13,54 +14,62 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
-// ─── Better Auth Tables ───────────────────────────────────────────────────────
-// These are managed by Better Auth — do not rename columns.
+// ─── Neon Auth Schema ─────────────────────────────────────────────────────────
+// Tables live in the neon_auth schema with camelCase DB column names and UUID IDs.
+// Managed by Neon Auth (Better Auth under the hood) — do not rename columns.
 
-export const authUser = pgTable("user", {
-  id: text("id").primaryKey(),
+const neonAuth = pgSchema("neon_auth");
+
+export const authUser = neonAuth.table("user", {
+  id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
-  emailVerified: boolean("email_verified").notNull().default(false),
+  emailVerified: boolean("emailVerified").notNull().default(false),
   image: text("image"),
-  role: text("role").notNull().default("user"), // "user" | "admin"
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  role: text("role").default("user"),
+  createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
+  banned: boolean("banned"),
+  banReason: text("banReason"),
+  banExpires: timestamp("banExpires", { withTimezone: true }),
 });
 
-export const authSession = pgTable("session", {
-  id: text("id").primaryKey(),
-  expiresAt: timestamp("expires_at").notNull(),
+export const authSession = neonAuth.table("session", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  expiresAt: timestamp("expiresAt", { withTimezone: true }).notNull(),
   token: text("token").notNull().unique(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-  ipAddress: text("ip_address"),
-  userAgent: text("user_agent"),
-  userId: text("user_id").notNull().references(() => authUser.id, { onDelete: "cascade" }),
+  createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
+  ipAddress: text("ipAddress"),
+  userAgent: text("userAgent"),
+  userId: uuid("userId").notNull().references(() => authUser.id, { onDelete: "cascade" }),
+  impersonatedBy: text("impersonatedBy"),
+  activeOrganizationId: text("activeOrganizationId"),
 });
 
-export const authAccount = pgTable("account", {
-  id: text("id").primaryKey(),
-  accountId: text("account_id").notNull(),
-  providerId: text("provider_id").notNull(),
-  userId: text("user_id").notNull().references(() => authUser.id, { onDelete: "cascade" }),
-  accessToken: text("access_token"),
-  refreshToken: text("refresh_token"),
-  idToken: text("id_token"),
-  accessTokenExpiresAt: timestamp("access_token_expires_at"),
-  refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
+export const authAccount = neonAuth.table("account", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  accountId: text("accountId").notNull(),
+  providerId: text("providerId").notNull(),
+  userId: uuid("userId").notNull().references(() => authUser.id, { onDelete: "cascade" }),
+  accessToken: text("accessToken"),
+  refreshToken: text("refreshToken"),
+  idToken: text("idToken"),
+  accessTokenExpiresAt: timestamp("accessTokenExpiresAt", { withTimezone: true }),
+  refreshTokenExpiresAt: timestamp("refreshTokenExpiresAt", { withTimezone: true }),
   scope: text("scope"),
   password: text("password"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const authVerification = pgTable("verification", {
-  id: text("id").primaryKey(),
+export const authVerification = neonAuth.table("verification", {
+  id: uuid("id").primaryKey().defaultRandom(),
   identifier: text("identifier").notNull(),
   value: text("value").notNull(),
-  expiresAt: timestamp("expires_at").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  expiresAt: timestamp("expiresAt", { withTimezone: true }).notNull(),
+  createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updatedAt", { withTimezone: true }).defaultNow(),
 });
 
 // ─── Profiles (legacy — kept for admin/tracker feature compat) ─────────────

@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth, isAdmin } from "@/lib/auth";
+import { getAuthUserId, isAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { masterTemplates, products } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
 export async function GET() {
   try {
-    const { data: session } = await auth.getSession();
-    if (!session?.user?.id || !(await isAdmin(session.user.id))) {
+    const userId = await getAuthUserId();
+    if (!userId || !(await isAdmin(userId))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -35,8 +35,8 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { data: session } = await auth.getSession();
-    if (!session?.user?.id || !(await isAdmin(session.user.id))) {
+    const userId = await getAuthUserId();
+    if (!userId || !(await isAdmin(userId))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -59,8 +59,8 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const { data: session } = await auth.getSession();
-    if (!session?.user?.id || !(await isAdmin(session.user.id))) {
+    const userId = await getAuthUserId();
+    if (!userId || !(await isAdmin(userId))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -81,8 +81,8 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { data: session } = await auth.getSession();
-    if (!session?.user?.id || !(await isAdmin(session.user.id))) {
+    const userId = await getAuthUserId();
+    if (!userId || !(await isAdmin(userId))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

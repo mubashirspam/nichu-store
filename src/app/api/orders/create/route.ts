@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getAuthUserId } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { products as productsTable, orders, orderItems, offerCodes, offerCodeUsage } from "@/lib/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
@@ -7,7 +7,7 @@ import Razorpay from "razorpay";
 
 export async function POST(req: NextRequest) {
   try {
-    const { data: __session } = await auth.getSession(); const userId = __session?.user?.id;
+    const userId = await getAuthUserId();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

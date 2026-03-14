@@ -1,4 +1,8 @@
-'use client';
-import '@/lib/crypto-polyfill';
-import { createAuthClient } from '@neondatabase/auth/next';
-export const authClient = createAuthClient();
+"use client";
+import { createAuthClient } from "better-auth/react";
+import { magicLinkClient } from "better-auth/client/plugins";
+
+export const authClient = createAuthClient({
+  baseURL: process.env.NEXT_PUBLIC_APP_URL,
+  plugins: [magicLinkClient()],
+});

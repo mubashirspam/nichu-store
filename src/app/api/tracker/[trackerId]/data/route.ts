@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getAuthUserId, isAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { userTrackers, userCloudAccounts } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -10,8 +10,8 @@ export async function GET(
   { params }: { params: Promise<{ trackerId: string }> }
 ) {
   try {
-    const { data: session } = await auth.getSession();
-    if (!session?.user?.id) {
+    const userId = await getAuthUserId(); // TODO: verify usage below
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -27,7 +27,7 @@ export async function GET(
       .from(userTrackers)
       .innerJoin(userCloudAccounts, eq(userTrackers.cloudAccountId, userCloudAccounts.id))
       .where(
-        and(eq(userTrackers.id, trackerId), eq(userTrackers.userId, session.user.id))
+        and(eq(userTrackers.id, trackerId), eq(userTrackers.userId, userId))
       )
       .limit(1);
 

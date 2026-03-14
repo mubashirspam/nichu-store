@@ -19,19 +19,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const sessionUser = session?.user || null;
 
-  // Sync user to profiles table on sign-in (ensures Google users appear in admin)
+  // Sync user to legacy profiles table on sign-in
   useEffect(() => {
     if (!sessionUser) return;
     fetch("/api/auth/sync", { method: "POST" }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionUser?.id]);
 
   useEffect(() => {
-    if (!sessionUser) {
-      setIsAdmin(false);
-      return;
-    }
-    // Check admin role from user's role field
-    setIsAdmin(sessionUser.role === "admin");
+    if (!sessionUser) { setIsAdmin(false); return; }
+    // Better Auth user has role field
+    setIsAdmin((sessionUser as any).role === "admin");
   }, [sessionUser]);
 
   const user = useMemo(() => {
@@ -43,7 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [sessionUser]);
 
-  const avatarUrl = sessionUser?.image || null;
+  const avatarUrl = (sessionUser as any)?.image || null;
 
   const handleSignOut = useCallback(async () => {
     await authClient.signOut();
@@ -67,8 +65,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
+  if (context === undefined) throw new Error("useAuth must be used within an AuthProvider");
   return context;
 }

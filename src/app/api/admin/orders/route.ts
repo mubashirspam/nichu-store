@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { isAdmin } from "@/lib/auth";
+import { getAuthUserId, isAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { orders, orderItems, profiles } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
   try {
-    const { data: __session } = await auth.getSession(); const userId = __session?.user?.id;
+    const userId = await getAuthUserId();
     if (!userId || !(await isAdmin(userId))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -59,7 +58,7 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const { data: __session } = await auth.getSession(); const userId = __session?.user?.id;
+    const userId = await getAuthUserId();
     if (!userId || !(await isAdmin(userId))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }

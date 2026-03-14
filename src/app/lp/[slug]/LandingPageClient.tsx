@@ -4,14 +4,13 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CreditCard, ArrowRight, ShieldCheck, Lock, Sparkles, Menu, X, ShoppingCart } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import MetaPixel, { trackLead, trackViewContent, trackInitiateCheckout } from "@/components/landing/MetaPixel";
+import MetaPixel, { trackViewContent, trackInitiateCheckout } from "@/components/landing/MetaPixel";
 import LandingHero from "@/components/landing/LandingHero";
 import FeaturesTimeline from "@/components/landing/FeaturesTimeline";
 import LandingTestimonials from "@/components/landing/LandingTestimonials";
 import LandingFAQ from "@/components/landing/LandingFAQ";
 import ImageContentSections from "@/components/landing/ImageContentSections";
-import { useAuth } from "@/contexts/AuthContext";
+import GuestCheckoutModal from "@/components/GuestCheckoutModal";
 
 interface PageData {
   id: string;
@@ -54,10 +53,9 @@ interface LandingPageClientProps {
 }
 
 export default function LandingPageClient({ page, product }: LandingPageClientProps) {
-  const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
 
   const discount = product.originalPrice > product.price
     ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100) : 0;
@@ -77,52 +75,21 @@ export default function LandingPageClient({ page, product }: LandingPageClientPr
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Silently capture lead when user is logged in
-  const captureLeadSilently = async () => {
-    if (!user) return;
-    try {
-      await fetch("/api/lp/leads", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          landing_page_id: page.id,
-          product_id: page.productId,
-          name: user.fullName || null,
-          email: user.email || null,
-          phone: null,
-          utm_source: new URLSearchParams(window.location.search).get("utm_source") || undefined,
-          utm_medium: new URLSearchParams(window.location.search).get("utm_medium") || undefined,
-          utm_campaign: new URLSearchParams(window.location.search).get("utm_campaign") || undefined,
-        }),
-      });
-      trackLead(product.price);
-    } catch {}
-  };
-
   const handleBuyNow = () => {
-    if (authLoading) return;
-
-    const checkoutUrl = `/checkout?product=${page.productId}`;
-
-    // Track InitiateCheckout event (user clicked Buy Now)
     trackInitiateCheckout(product.price, 1);
-
-    // Not logged in -> redirect to login, then to checkout (not back to LP)
-    if (!user) {
-      router.push(`/auth/sign-in?callbackURL=${encodeURIComponent(checkoutUrl)}`);
-      return;
-    }
-
-    // Capture lead silently and track Lead event
-    captureLeadSilently();
-
-    // Navigate to checkout page (all payment happens there)
-    router.push(checkoutUrl);
+    setModalOpen(true);
   };
 
   return (
     <div className="min-h-screen bg-[#0B0D11] text-white">
       <MetaPixel pixelId={page.metaPixelId} />
+
+      {/* Guest Checkout Modal */}
+      <GuestCheckoutModal
+        product={{ id: product.id, name: product.name, price: product.price, currency: product.currency || "INR" }}
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+      />
 
       {/* ── Responsive Navbar ──────────────────────────── */}
       <motion.nav
@@ -140,9 +107,6 @@ export default function LandingPageClient({ page, product }: LandingPageClientPr
 
           {/* Desktop nav */}
           <div className="hidden sm:flex items-center gap-4">
-            {user ? (
-              <span className="text-xs text-gray-400">Hi, {user.fullName || user.email}</span>
-            ) : null}
             <button onClick={handleBuyNow}
               className="bg-white text-[#0B0D11] font-bold text-sm px-5 py-2 rounded-lg hover:bg-gray-100 transition-all flex items-center gap-2">
               <ShoppingCart size={14} /> {page.heroCtaText || "Buy Now"} — ₹{product.price}
@@ -165,7 +129,6 @@ export default function LandingPageClient({ page, product }: LandingPageClientPr
               className="sm:hidden bg-[#0B0D11]/95 backdrop-blur-xl border-b border-white/[0.06] overflow-hidden"
             >
               <div className="px-4 py-4 space-y-3">
-                {user && <p className="text-xs text-gray-500">Signed in as {user.email}</p>}
                 <button onClick={() => { setShowMobileMenu(false); handleBuyNow(); }}
                   className="w-full bg-white text-[#0B0D11] font-bold text-sm px-5 py-3 rounded-xl hover:bg-gray-100 transition-all flex items-center justify-center gap-2">
                   <ShoppingCart size={14} /> {page.heroCtaText || "Buy Now"} — ₹{product.price}
@@ -270,7 +233,7 @@ export default function LandingPageClient({ page, product }: LandingPageClientPr
               className="w-full group bg-white text-[#0B0D11] font-bold text-base py-4 rounded-xl transition-all duration-200 hover:bg-gray-100 active:scale-[0.98] flex items-center justify-center gap-2.5"
             >
               <ShoppingCart size={18} />
-              {user ? `Buy Now — ₹${product.price}` : "Sign In & Buy"}
+              {`Buy Now — ₹${product.price}`}
               <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
             </button>
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getAuthUserId } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { orderItems, orders } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -8,8 +8,7 @@ import { get } from "@vercel/blob";
 export async function GET(req: NextRequest) {
   try {
     // 1. Authenticate
-    const { data: session } = await auth.getSession();
-    const userId = session?.user?.id;
+    const userId = await getAuthUserId();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

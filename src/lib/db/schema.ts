@@ -13,13 +13,65 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
-// ─── Profiles (synced from Clerk) ────────────────────────────────────────────
+// ─── Better Auth Tables ───────────────────────────────────────────────────────
+// These are managed by Better Auth — do not rename columns.
+
+export const authUser = pgTable("user", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull().unique(),
+  emailVerified: boolean("email_verified").notNull().default(false),
+  image: text("image"),
+  role: text("role").notNull().default("user"), // "user" | "admin"
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const authSession = pgTable("session", {
+  id: text("id").primaryKey(),
+  expiresAt: timestamp("expires_at").notNull(),
+  token: text("token").notNull().unique(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  userId: text("user_id").notNull().references(() => authUser.id, { onDelete: "cascade" }),
+});
+
+export const authAccount = pgTable("account", {
+  id: text("id").primaryKey(),
+  accountId: text("account_id").notNull(),
+  providerId: text("provider_id").notNull(),
+  userId: text("user_id").notNull().references(() => authUser.id, { onDelete: "cascade" }),
+  accessToken: text("access_token"),
+  refreshToken: text("refresh_token"),
+  idToken: text("id_token"),
+  accessTokenExpiresAt: timestamp("access_token_expires_at"),
+  refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
+  scope: text("scope"),
+  password: text("password"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const authVerification = pgTable("verification", {
+  id: text("id").primaryKey(),
+  identifier: text("identifier").notNull(),
+  value: text("value").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ─── Profiles (legacy — kept for admin/tracker feature compat) ─────────────
 export const profiles = pgTable("profiles", {
-  id: text("id").primaryKey(), // Clerk user ID
+  id: text("id").primaryKey(),
   email: text("email").notNull(),
   fullName: text("full_name"),
   avatarUrl: text("avatar_url"),
   role: text("role").notNull().default("user"),
+  authProvider: text("auth_provider").notNull().default("neon"),
+  emailVerified: boolean("email_verified").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -43,10 +95,21 @@ export const products = pgTable("products", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// ─── Pending Checkouts (guest checkout before webhook fires) ─────────────────
+export const pendingCheckouts = pgTable("pending_checkouts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  razorpayOrderId: text("razorpay_order_id").notNull().unique(),
+  email: text("email").notNull(),
+  name: text("name").notNull(),
+  productId: uuid("product_id").notNull(),
+  status: text("status").notNull().default("pending"), // pending | completed | failed
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // ─── Orders ──────────────────────────────────────────────────────────────────
 export const orders = pgTable("orders", {
   id: uuid("id").primaryKey().defaultRandom(),
-  userId: text("user_id").notNull(),
+  userId: text("user_id").notNull(),         // Better Auth user.id
   orderNumber: text("order_number").notNull(),
   totalAmount: numeric("total_amount", { precision: 10, scale: 2 }).notNull(),
   discountAmount: numeric("discount_amount", { precision: 10, scale: 2 }).notNull().default("0"),
@@ -183,9 +246,7 @@ export const userCloudAccounts = pgTable(
   "user_cloud_accounts",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    userId: text("user_id")
-      .notNull()
-      .references(() => profiles.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull(),
     provider: varchar("provider", { length: 20 }).notNull(), // 'google' | 'microsoft'
     accessToken: text("access_token").notNull(),
     refreshToken: text("refresh_token"),
@@ -208,7 +269,7 @@ export const masterTemplates = pgTable(
     provider: varchar("provider", { length: 20 }).notNull(), // 'google' | 'microsoft'
     fileId: varchar("file_id", { length: 255 }).notNull(),
     fileUrl: text("file_url"),
-    trackerType: varchar("tracker_type", { length: 50 }).notNull(), // 'habit' | 'financial' | 'workout' | 'nutrition'
+    trackerType: varchar("tracker_type", { length: 50 }).notNull(),
     version: varchar("version", { length: 20 }).default("1.0"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
@@ -221,9 +282,7 @@ export const userTrackers = pgTable(
   "user_trackers",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    userId: text("user_id")
-      .notNull()
-      .references(() => profiles.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull(),
     productId: uuid("product_id")
       .notNull()
       .references(() => products.id),
@@ -251,7 +310,7 @@ export const syncLogs = pgTable(
     userTrackerId: uuid("user_tracker_id")
       .notNull()
       .references(() => userTrackers.id, { onDelete: "cascade" }),
-    action: varchar("action", { length: 50 }).notNull(), // 'write' | 'read' | 'clone' | 'error'
+    action: varchar("action", { length: 50 }).notNull(),
     data: jsonb("data"),
     errorMessage: text("error_message"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
@@ -259,9 +318,8 @@ export const syncLogs = pgTable(
   (t) => [index("idx_sync_logs_tracker").on(t.userTrackerId)]
 );
 
-// ─── Tracker Relations ────────────────────────────────────────────────────────
-export const userCloudAccountsRelations = relations(userCloudAccounts, ({ one, many }) => ({
-  profile: one(profiles, { fields: [userCloudAccounts.userId], references: [profiles.id] }),
+// ─── Relations ────────────────────────────────────────────────────────────────
+export const userCloudAccountsRelations = relations(userCloudAccounts, ({ many }) => ({
   trackers: many(userTrackers),
 }));
 
@@ -270,7 +328,6 @@ export const masterTemplatesRelations = relations(masterTemplates, ({ one }) => 
 }));
 
 export const userTrackersRelations = relations(userTrackers, ({ one, many }) => ({
-  profile: one(profiles, { fields: [userTrackers.userId], references: [profiles.id] }),
   product: one(products, { fields: [userTrackers.productId], references: [products.id] }),
   cloudAccount: one(userCloudAccounts, { fields: [userTrackers.cloudAccountId], references: [userCloudAccounts.id] }),
   syncLogs: many(syncLogs),
@@ -280,7 +337,6 @@ export const syncLogsRelations = relations(syncLogs, ({ one }) => ({
   tracker: one(userTrackers, { fields: [syncLogs.userTrackerId], references: [userTrackers.id] }),
 }));
 
-// ─── Landing Page Relations ──────────────────────────────────────────────────
 export const landingPagesRelations = relations(landingPages, ({ one, many }) => ({
   product: one(products, { fields: [landingPages.productId], references: [products.id] }),
   leads: many(leads),

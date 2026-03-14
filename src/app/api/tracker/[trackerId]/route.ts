@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getAuthUserId, isAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { userTrackers, userCloudAccounts, products } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -9,8 +9,8 @@ export async function GET(
   { params }: { params: Promise<{ trackerId: string }> }
 ) {
   try {
-    const { data: session } = await auth.getSession();
-    if (!session?.user?.id) {
+    const userId = await getAuthUserId(); // TODO: verify usage below
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -36,7 +36,7 @@ export async function GET(
       .innerJoin(products, eq(userTrackers.productId, products.id))
       .innerJoin(userCloudAccounts, eq(userTrackers.cloudAccountId, userCloudAccounts.id))
       .where(
-        and(eq(userTrackers.id, trackerId), eq(userTrackers.userId, session.user.id))
+        and(eq(userTrackers.id, trackerId), eq(userTrackers.userId, userId))
       )
       .limit(1);
 
@@ -56,8 +56,8 @@ export async function PATCH(
   { params }: { params: Promise<{ trackerId: string }> }
 ) {
   try {
-    const { data: session } = await auth.getSession();
-    if (!session?.user?.id) {
+    const userId = await getAuthUserId(); // TODO: verify usage below
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -68,7 +68,7 @@ export async function PATCH(
       .update(userTrackers)
       .set({ isActive })
       .where(
-        and(eq(userTrackers.id, trackerId), eq(userTrackers.userId, session.user.id))
+        and(eq(userTrackers.id, trackerId), eq(userTrackers.userId, userId))
       );
 
     return NextResponse.json({ success: true });
@@ -83,8 +83,8 @@ export async function DELETE(
   { params }: { params: Promise<{ trackerId: string }> }
 ) {
   try {
-    const { data: session } = await auth.getSession();
-    if (!session?.user?.id) {
+    const userId = await getAuthUserId(); // TODO: verify usage below
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -93,7 +93,7 @@ export async function DELETE(
     await db
       .delete(userTrackers)
       .where(
-        and(eq(userTrackers.id, trackerId), eq(userTrackers.userId, session.user.id))
+        and(eq(userTrackers.id, trackerId), eq(userTrackers.userId, userId))
       );
 
     return NextResponse.json({ success: true });

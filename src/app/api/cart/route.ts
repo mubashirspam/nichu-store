@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getAuthUserId } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { cartItems, products } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 
 export async function GET() {
   try {
-    const { data: __session } = await auth.getSession(); const userId = __session?.user?.id;
+    const userId = await getAuthUserId();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -41,7 +41,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { data: __session } = await auth.getSession(); const userId = __session?.user?.id;
+    const userId = await getAuthUserId();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const { data: __session } = await auth.getSession(); const userId = __session?.user?.id;
+    const userId = await getAuthUserId();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

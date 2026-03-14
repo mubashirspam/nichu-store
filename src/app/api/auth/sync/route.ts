@@ -1,21 +1,18 @@
 import { NextResponse } from "next/server";
-import { auth, syncProfile } from "@/lib/auth";
+import { getAuthUserId, syncProfile } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { authUser } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 
 export async function POST() {
   try {
-    const { data: session } = await auth.getSession();
-    if (!session?.user) {
-      return NextResponse.json({ synced: false });
-    }
+    const userId = await getAuthUserId();
+    if (!userId) return NextResponse.json({ synced: false });
 
-    const user = session.user;
-    await syncProfile({
-      id: user.id,
-      email: user.email || "",
-      name: user.name || undefined,
-      image: user.image || null,
-    });
+    const [user] = await db.select().from(authUser).where(eq(authUser.id, userId)).limit(1);
+    if (!user) return NextResponse.json({ synced: false });
 
+    await syncProfile({ id: user.id, email: user.email, name: user.name, image: user.image });
     return NextResponse.json({ synced: true });
   } catch (error) {
     console.error("Error syncing profile:", error);

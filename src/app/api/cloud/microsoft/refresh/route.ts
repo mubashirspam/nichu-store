@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getAuthUserId, isAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { userCloudAccounts } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -7,8 +7,8 @@ import { refreshMicrosoftToken } from "@/lib/cloud";
 
 export async function POST(request: NextRequest) {
   try {
-    const { data: session } = await auth.getSession();
-    if (!session?.user?.id) {
+    const userId = await getAuthUserId(); // TODO: verify usage below
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
       .from(userCloudAccounts)
       .where(
         and(
-          eq(userCloudAccounts.userId, session.user.id),
+          eq(userCloudAccounts.userId, userId),
           eq(userCloudAccounts.provider, "microsoft")
         )
       )

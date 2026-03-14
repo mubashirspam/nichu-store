@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getAuthUserId, isAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { userTrackers, userCloudAccounts, masterTemplates } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -7,8 +7,8 @@ import { cloneGoogleSheet, cloneOneDriveFile, ensureValidToken } from "@/lib/clo
 
 export async function POST(request: NextRequest) {
   try {
-    const { data: session } = await auth.getSession();
-    if (!session?.user?.id) {
+    const userId = await getAuthUserId(); // TODO: verify usage below
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
       .where(
         and(
           eq(userCloudAccounts.id, cloudAccountId),
-          eq(userCloudAccounts.userId, session.user.id)
+          eq(userCloudAccounts.userId, userId)
         )
       )
       .limit(1);
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     const [tracker] = await db
       .insert(userTrackers)
       .values({
-        userId: session.user.id,
+        userId: userId,
         productId,
         cloudAccountId,
         fileId: clonedFile.id,

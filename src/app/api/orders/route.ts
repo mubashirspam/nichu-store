@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { orders, orderItems } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { getAuthUserId } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
   try {
-    const { data: __session } = await auth.getSession(); const userId = __session?.user?.id;
+    const userId = await getAuthUserId();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -14,23 +14,12 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const orderId = searchParams.get("id");
 
-    // Single order detail
     if (orderId) {
-      const [order] = await db
-        .select()
-        .from(orders)
-        .where(eq(orders.id, orderId))
-        .limit(1);
-
+      const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
       if (!order || order.userId !== userId) {
         return NextResponse.json({ error: "Not found" }, { status: 404 });
       }
-
-      const items = await db
-        .select()
-        .from(orderItems)
-        .where(eq(orderItems.orderId, orderId));
-
+      const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
       return NextResponse.json({
         id: order.id,
         order_number: order.orderNumber,
@@ -42,6 +31,7 @@ export async function GET(req: NextRequest) {
         created_at: order.createdAt,
         order_items: items.map((i) => ({
           id: i.id,
+          product_id: i.productId,
           product_name: i.productName,
           price: Number(i.price),
           file_url: i.fileUrl,
@@ -49,7 +39,6 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // All orders for user
     const userOrders = await db
       .select()
       .from(orders)
@@ -58,11 +47,7 @@ export async function GET(req: NextRequest) {
 
     const result = [];
     for (const order of userOrders) {
-      const items = await db
-        .select()
-        .from(orderItems)
-        .where(eq(orderItems.orderId, order.id));
-
+      const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
       result.push({
         id: order.id,
         order_number: order.orderNumber,
@@ -73,6 +58,7 @@ export async function GET(req: NextRequest) {
         created_at: order.createdAt,
         order_items: items.map((i) => ({
           id: i.id,
+          product_id: i.productId,
           product_name: i.productName,
           price: Number(i.price),
           file_url: i.fileUrl,

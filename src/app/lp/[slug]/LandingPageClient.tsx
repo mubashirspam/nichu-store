@@ -4,13 +4,13 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CreditCard, ArrowRight, ShieldCheck, Lock, Sparkles, Menu, X, ShoppingCart } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import MetaPixel, { trackViewContent, trackInitiateCheckout } from "@/components/landing/MetaPixel";
 import LandingHero from "@/components/landing/LandingHero";
 import FeaturesTimeline from "@/components/landing/FeaturesTimeline";
 import LandingTestimonials from "@/components/landing/LandingTestimonials";
 import LandingFAQ from "@/components/landing/LandingFAQ";
 import ImageContentSections from "@/components/landing/ImageContentSections";
-import GuestCheckoutModal from "@/components/GuestCheckoutModal";
 
 interface PageData {
   id: string;
@@ -53,9 +53,9 @@ interface LandingPageClientProps {
 }
 
 export default function LandingPageClient({ page, product }: LandingPageClientProps) {
+  const router = useRouter();
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
 
   const discount = product.originalPrice > product.price
     ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100) : 0;
@@ -77,19 +77,12 @@ export default function LandingPageClient({ page, product }: LandingPageClientPr
 
   const handleBuyNow = () => {
     trackInitiateCheckout(product.price, 1);
-    setModalOpen(true);
+    router.push(`/checkout?productId=${product.id}`);
   };
 
   return (
     <div className="min-h-screen bg-[#0B0D11] text-white">
       <MetaPixel pixelId={page.metaPixelId} />
-
-      {/* Guest Checkout Modal */}
-      <GuestCheckoutModal
-        product={{ id: product.id, name: product.name, price: product.price, currency: product.currency || "INR" }}
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-      />
 
       {/* ── Responsive Navbar ──────────────────────────── */}
       <motion.nav

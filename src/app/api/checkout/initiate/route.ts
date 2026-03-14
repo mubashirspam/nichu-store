@@ -1,18 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { products, pendingCheckouts } from "@/lib/db/schema";
+import { products } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { getRazorpayClient } from "@/lib/razorpay";
 
 export async function POST(req: NextRequest) {
   try {
-    const { name, email, productId } = await req.json();
+    const { productId } = await req.json();
 
-    if (!name || !email || !productId) {
-      return NextResponse.json({ error: "name, email, and productId are required" }, { status: 400 });
+    if (!productId) {
+      return NextResponse.json({ error: "productId is required" }, { status: 400 });
     }
 
-    // Validate product exists
     const [product] = await db
       .select()
       .from(products)
@@ -23,24 +22,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
 
-    const amountPaise = Math.round(Number(product.price) * 100); // Razorpay uses paise
+    const amountPaise = Math.round(Number(product.price) * 100);
 
-    // Create Razorpay order
     const razorpay = getRazorpayClient();
     const rzpOrder = await razorpay.orders.create({
       amount: amountPaise,
       currency: product.currency || "INR",
-      receipt: `guest_${Date.now()}`,
-    });
-
-    // Store pending checkout
-    await db.insert(pendingCheckouts).values({
-      razorpayOrderId: rzpOrder.id,
-      email: email.toLowerCase().trim(),
-      name: name.trim(),
-      productId,
-      status: "pending",
-    });
+      receipt: `order_${Date.now()}`,
+      notes: { productId },
+    } as any);
 
     return NextResponse.json({
       orderId: rzpOrder.id,

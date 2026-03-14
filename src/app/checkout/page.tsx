@@ -3,11 +3,17 @@
 import React, { useState, useEffect, useMemo, Suspense } from "react";
 import { ShoppingCart, CreditCard, ArrowLeft, Tag, Sparkles, ShieldCheck, Lock, CheckCircle, Loader2, Package, X } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { useProducts } from "@/contexts/ProductContext";
 import { useCart } from "@/contexts/CartContext";
 import { trackInitiateCheckout, trackPurchase } from "@/components/landing/MetaPixel";
+import { authClient } from "@/lib/auth/client";
+
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
 
 interface CheckoutItem {
   id: string;
@@ -17,16 +23,18 @@ interface CheckoutItem {
 }
 
 function CheckoutContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
-  const { products, loading: productsLoading } = useProducts();
-  const { items: cartItems, totalAmount: cartTotal, loading: cartLoading, clearCart } = useCart();
+  const { items: cartItems, loading: cartLoading, clearCart } = useCart();
 
   const [processing, setProcessing] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
   const [dark, setDark] = useState(false);
+
+  // For direct productId param — fetch the product from API directly
+  const [directProduct, setDirectProduct] = useState<CheckoutItem | null>(null);
+  const [directLoading, setDirectLoading] = useState(false);
 
   // Offer code state
   const [offerCode, setOfferCode] = useState("");
@@ -42,9 +50,30 @@ function CheckoutContent() {
 
   const d = dark;
   const source = searchParams.get("source"); // "cart" or null
-  const productId = searchParams.get("product"); // single product from LP
+  // ?productId= from landing page (new), ?product= from old auth flow
+  const productId = searchParams.get("productId") || searchParams.get("product");
 
-  // Determine checkout items based on source
+  // Fetch product directly from API when productId param is present
+  useEffect(() => {
+    if (!productId || source === "cart") return;
+    setDirectLoading(true);
+    fetch(`/api/products/${productId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.id) {
+          setDirectProduct({
+            id: data.id,
+            name: data.name,
+            price: Number(data.price),
+            originalPrice: Number(data.original_price || data.price),
+          });
+        }
+      })
+      .catch(() => {})
+      .finally(() => setDirectLoading(false));
+  }, [productId, source]);
+
+  // Determine checkout items
   const checkoutItems: CheckoutItem[] = useMemo(() => {
     if (source === "cart") {
       return cartItems.map((item) => ({
@@ -54,38 +83,20 @@ function CheckoutContent() {
         originalPrice: Number(item.product.original_price),
       }));
     }
-    if (productId) {
-      const product = products.find((p) => p.id === productId);
-      if (product) {
-        return [{
-          id: product.id,
-          name: product.name,
-          price: Number(product.price),
-          originalPrice: Number(product.original_price),
-        }];
-      }
-    }
+    if (directProduct) return [directProduct];
     return [];
-  }, [source, productId, cartItems, products]);
+  }, [source, directProduct, cartItems]);
 
   const subtotal = checkoutItems.reduce((sum, item) => sum + item.price, 0);
   const totalSaved = checkoutItems.reduce((sum, item) => sum + Math.max(0, item.originalPrice - item.price), 0);
   const finalAmount = Math.max(subtotal - offerDiscount, 1);
 
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (authLoading) return;
-    if (!user) {
-      const currentUrl = typeof window !== "undefined" ? window.location.pathname + window.location.search : "/checkout";
-      router.push(`/auth/sign-in?callbackURL=${encodeURIComponent(currentUrl)}`);
-    }
-  }, [user, authLoading, router]);
+  // Loading: wait for auth + direct product fetch (or cart)
+  const isLoading = authLoading || directLoading || (source === "cart" && cartLoading);
 
-  const isLoading = authLoading || productsLoading || (source === "cart" && cartLoading);
-
-  // Fire InitiateCheckout once items are loaded and user is authenticated
+  // Fire InitiateCheckout once items are loaded
   useEffect(() => {
-    if (!isLoading && user && checkoutItems.length > 0) {
+    if (!isLoading && checkoutItems.length > 0) {
       trackInitiateCheckout(subtotal, checkoutItems.length);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -131,10 +142,62 @@ function CheckoutContent() {
     setOfferApplied(false);
   };
 
-  // Process payment via Razorpay
-  const handlePay = async () => {
-    if (!user || checkoutItems.length === 0) return;
+  // ── Guest checkout (no account) ───────────────────────────────────────────
+  const handleGuestPay = async () => {
+    const item = checkoutItems[0];
+    if (!item) return;
+    setProcessing(true);
+    setError("");
 
+    try {
+      const res = await fetch("/api/checkout/initiate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId: item.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to initiate payment");
+
+      const options = {
+        key: data.razorpayKeyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        amount: data.amount,
+        currency: data.currency,
+        name: "NichuStore",
+        description: item.name,
+        order_id: data.orderId,
+        handler: async function () {
+          // Payment success — trigger Google sign-in so they get a session
+          try {
+            await authClient.signIn.social({
+              provider: "google",
+              callbackURL: "/dashboard/orders",
+            });
+          } catch {
+            // Google OAuth not configured or dismissed — go to success page
+            window.location.href = `/success?product=${encodeURIComponent(item.name)}`;
+          }
+        },
+        theme: { color: "#7c3aed" },
+        modal: {
+          ondismiss: () => setProcessing(false),
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on("payment.failed", (resp: any) => {
+        setProcessing(false);
+        setError(resp?.error?.description || "Payment failed. Please try again.");
+      });
+      rzp.open();
+    } catch (err: any) {
+      setError(err.message || "Something went wrong. Please try again.");
+      setProcessing(false);
+    }
+  };
+
+  // ── Authenticated checkout (existing flow) ────────────────────────────────
+  const handleAuthPay = async () => {
+    if (!user || checkoutItems.length === 0) return;
     setProcessing(true);
     setError("");
 
@@ -181,7 +244,6 @@ function CheckoutContent() {
             if (verifyData.verified) {
               trackPurchase(finalAmount, response.razorpay_payment_id);
               setSuccess(true);
-              // Clear cart if source was cart
               if (source === "cart") {
                 try { await clearCart(); } catch {}
               }
@@ -203,7 +265,7 @@ function CheckoutContent() {
         },
       };
 
-      const rzp = new (window as any).Razorpay(options);
+      const rzp = new window.Razorpay(options);
       rzp.on("payment.failed", (resp: any) => {
         setProcessing(false);
         setError(resp?.error?.description || "Payment failed. Please try again.");
@@ -215,7 +277,16 @@ function CheckoutContent() {
     }
   };
 
-  // Success state
+  const handlePay = () => {
+    if (user) {
+      handleAuthPay();
+    } else {
+      handleGuestPay();
+    }
+  };
+
+  // ── States ────────────────────────────────────────────────────────────────
+
   if (success) {
     return (
       <div className={`min-h-screen flex items-center justify-center ${d ? "bg-[#0a0a0f] text-white" : "bg-gray-50 text-gray-900"}`}>
@@ -230,7 +301,6 @@ function CheckoutContent() {
     );
   }
 
-  // Loading state
   if (isLoading) {
     return (
       <div className={`min-h-screen flex items-center justify-center ${d ? "bg-[#0a0a0f] text-white" : "bg-gray-50 text-gray-900"}`}>
@@ -242,7 +312,6 @@ function CheckoutContent() {
     );
   }
 
-  // No items state
   if (checkoutItems.length === 0) {
     return (
       <div className={`min-h-screen flex items-center justify-center ${d ? "bg-[#0a0a0f] text-white" : "bg-gray-50 text-gray-900"}`}>
@@ -379,6 +448,13 @@ function CheckoutContent() {
                   <span className="font-bold">₹{finalAmount}</span>
                 </div>
               </div>
+
+              {/* Guest notice */}
+              {!user && (
+                <div className={`mb-3 p-3 rounded-lg text-xs ${d ? "bg-violet-500/10 border border-violet-500/20 text-violet-300" : "bg-violet-50 border border-violet-200 text-violet-700"}`}>
+                  Razorpay will collect your name, email &amp; mobile during payment.
+                </div>
+              )}
 
               {error && (
                 <div className="mb-3 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-xs sm:text-sm">

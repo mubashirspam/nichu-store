@@ -8,7 +8,6 @@ interface Session {
 const PROTECTED_PATHS = [
   "/cart",
   "/orders",
-  "/checkout",
   "/admin",
   "/account",
   "/tracker",
@@ -51,7 +50,6 @@ export const config = {
   matcher: [
     "/cart/:path*",
     "/orders/:path*",
-    "/checkout/:path*",
     "/admin/:path*",
     "/account/:path*",
     "/tracker/:path*",

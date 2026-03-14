@@ -36,10 +36,11 @@ export default function LoginPage() {
 
   const handleGoogle = async () => {
     setGoogleLoading(true);
-    await authClient.signIn.social({
+    const { error } = await authClient.signIn.social({
       provider: "google",
       callbackURL: "/dashboard/orders",
     });
+    if (error) setGoogleLoading(false);
   };
 
   return (

@@ -73,10 +73,15 @@ function AuthContent({ params }: { params: Promise<{ path: string }> }) {
     setSocialLoading(provider);
     setError("");
     try {
-      await authClient.signIn.social({
+      const { error } = await authClient.signIn.social({
         provider,
         callbackURL,
       });
+      if (error) {
+        setError(error.message || `Failed to sign in with ${provider}`);
+        setSocialLoading(null);
+      }
+      // no error → redirect is in progress, keep spinner
     } catch (err: any) {
       setError(err.message || `Failed to sign in with ${provider}`);
       setSocialLoading(null);

@@ -21,6 +21,7 @@ export default function AdminOfferCodesPage() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<OfferCode | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [dark, setDark] = useState(false);
   const [form, setForm] = useState({
@@ -29,7 +30,10 @@ export default function AdminOfferCodesPage() {
   });
 
   useEffect(() => {
-    setDark(document.documentElement.classList.contains("dark"));
+    const stored = localStorage.getItem("theme");
+    const isDark = stored === "dark";
+    setDark(isDark);
+    document.documentElement.classList.toggle("dark", isDark);
   }, []);
 
   const d = dark;
@@ -45,6 +49,7 @@ export default function AdminOfferCodesPage() {
   const openNewForm = () => {
     setEditing(null);
     setForm({ code: "", discount_type: "percentage", discount_value: 0, max_uses: "", is_active: true, valid_until: "" });
+    setSaveError(null);
     setShowForm(true);
   };
 
@@ -60,19 +65,36 @@ export default function AdminOfferCodesPage() {
 
   const handleSave = async () => {
     setSaving(true);
+    setSaveError(null);
     const payload = {
       code: form.code.toUpperCase(), discount_type: form.discount_type,
       discount_value: Number(form.discount_value), max_uses: form.max_uses ? Number(form.max_uses) : null,
       is_active: form.is_active, valid_until: form.valid_until || null,
     };
 
-    if (editing) {
-      await fetch("/api/admin/offer-codes", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: editing.id, ...payload }) });
-    } else {
-      await fetch("/api/admin/offer-codes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    try {
+      let res;
+      if (editing) {
+        res = await fetch("/api/admin/offer-codes", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: editing.id, ...payload }) });
+      } else {
+        res = await fetch("/api/admin/offer-codes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      }
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setSaveError(data.error || `Error ${res.status}`);
+        setSaving(false);
+        return;
+      }
+    } catch {
+      setSaveError("Network error. Please try again.");
+      setSaving(false);
+      return;
     }
 
-    setSaving(false); setShowForm(false); fetchCodes();
+    setSaving(false);
+    setShowForm(false);
+    await fetchCodes();
   };
 
   const handleDelete = async (id: string) => {
@@ -146,6 +168,9 @@ export default function AdminOfferCodesPage() {
                 <label htmlFor="code_active" className={`text-sm ${d ? "text-gray-300" : "text-gray-700"}`}>Active</label>
               </div>
             </div>
+            {saveError && (
+              <p className="mt-4 text-sm text-red-500 bg-red-500/10 rounded-lg px-3 py-2">{saveError}</p>
+            )}
             <div className="flex justify-end gap-3 mt-6">
               <button onClick={() => setShowForm(false)} className={`px-4 py-2 text-sm ${d ? "text-gray-400 hover:text-white" : "text-gray-600 hover:text-gray-900"}`}>Cancel</button>
               <button onClick={handleSave} disabled={saving || !form.code} className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white px-6 py-2 rounded-lg text-sm font-semibold disabled:opacity-50 transition-colors shadow-lg shadow-violet-500/25">

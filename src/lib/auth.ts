@@ -21,6 +21,10 @@ export const auth = betterAuth({
     },
   }),
 
+  emailAndPassword: {
+    enabled: true,
+  },
+
   plugins: [
     magicLink({
       sendMagicLink: async ({ email, url }) => {

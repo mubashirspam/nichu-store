@@ -6,12 +6,9 @@ import { eq, and } from "drizzle-orm";
 
 export async function POST(req: NextRequest) {
   try {
-    const userId = await getAuthUserId();
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
+    const userId = await getAuthUserId(); // null for guests — that's OK
     const { code, cartTotal } = await req.json();
+
     if (!code) {
       return NextResponse.json({ error: "No code provided" }, { status: 400 });
     }
@@ -26,14 +23,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid offer code" }, { status: 404 });
     }
 
-    const [usage] = await db
-      .select({ id: offerCodeUsage.id })
-      .from(offerCodeUsage)
-      .where(and(eq(offerCodeUsage.offerCodeId, oc.id), eq(offerCodeUsage.userId, userId)))
-      .limit(1);
+    // Authorized-only codes require a logged-in user
+    if (oc.requiresAuth && !userId) {
+      return NextResponse.json({ error: "Please sign in to use this offer code" }, { status: 401 });
+    }
 
-    if (usage) {
-      return NextResponse.json({ error: "You have already used this offer code" }, { status: 400 });
+    // Per-user duplicate check (only for logged-in users)
+    if (userId) {
+      const [usage] = await db
+        .select({ id: offerCodeUsage.id })
+        .from(offerCodeUsage)
+        .where(and(eq(offerCodeUsage.offerCodeId, oc.id), eq(offerCodeUsage.userId, userId)))
+        .limit(1);
+
+      if (usage) {
+        return NextResponse.json({ error: "You have already used this offer code" }, { status: 400 });
+      }
     }
 
     if (oc.maxUses && oc.usedCount >= oc.maxUses) {
@@ -44,8 +49,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "This offer code has expired" }, { status: 400 });
     }
 
-    let discountAmount = 0;
     const discountValue = Number(oc.discountValue);
+    let discountAmount = 0;
     if (oc.discountType === "percentage") {
       discountAmount = Math.round(((cartTotal || 0) * discountValue) / 100);
     } else {
@@ -59,6 +64,7 @@ export async function POST(req: NextRequest) {
       discountType: oc.discountType,
       discountValue,
       discountAmount,
+      requiresAuth: oc.requiresAuth,
       message: oc.discountType === "percentage"
         ? `${discountValue}% off applied!`
         : `₹${discountValue} off applied!`,

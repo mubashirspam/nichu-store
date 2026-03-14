@@ -154,6 +154,7 @@ export const offerCodes = pgTable("offer_codes", {
   maxUses: integer("max_uses"),
   usedCount: integer("used_count").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
+  requiresAuth: boolean("requires_auth").notNull().default(false),
   validFrom: timestamp("valid_from", { withTimezone: true }).notNull().defaultNow(),
   validUntil: timestamp("valid_until", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

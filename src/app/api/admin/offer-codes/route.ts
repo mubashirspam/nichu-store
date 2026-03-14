@@ -17,6 +17,7 @@ export async function GET() {
       id: c.id, code: c.code, discount_type: c.discountType,
       discount_value: Number(c.discountValue), max_uses: c.maxUses,
       used_count: c.usedCount, is_active: c.isActive,
+      requires_auth: c.requiresAuth,
       valid_from: c.validFrom, valid_until: c.validUntil,
     }));
 
@@ -42,6 +43,7 @@ export async function POST(req: NextRequest) {
       discountValue: String(body.discount_value),
       maxUses: body.max_uses ? Number(body.max_uses) : null,
       isActive: body.is_active ?? true,
+      requiresAuth: false,
       validUntil: body.valid_until ? new Date(body.valid_until) : null,
     }).returning();
 
@@ -68,6 +70,7 @@ export async function PUT(req: NextRequest) {
       discountValue: String(body.discount_value),
       maxUses: body.max_uses ? Number(body.max_uses) : null,
       isActive: body.is_active,
+      requiresAuth: false,
       validUntil: body.valid_until ? new Date(body.valid_until) : null,
       updatedAt: new Date(),
     }).where(eq(offerCodes.id, body.id));

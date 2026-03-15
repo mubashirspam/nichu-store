@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUserId } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { orders, offerCodes, offerCodeUsage, cartItems } from "@/lib/db/schema";
+import { orders, orderItems, offerCodes, offerCodeUsage, cartItems, authUser } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import crypto from "crypto";
+import { sendDownloadLinkEmail } from "@/lib/email";
 
 export async function POST(req: NextRequest) {
   try {
@@ -72,6 +73,37 @@ export async function POST(req: NextRequest) {
 
     // Clear user's cart
     await db.delete(cartItems).where(eq(cartItems.userId, userId));
+
+    // Send purchase confirmation email
+    try {
+      const [user] = await db
+        .select({ email: authUser.email, name: authUser.name })
+        .from(authUser)
+        .where(eq(authUser.id, userId))
+        .limit(1);
+
+      if (user?.email) {
+        const items = await db
+          .select()
+          .from(orderItems)
+          .where(eq(orderItems.orderId, dbOrderId));
+
+        const productName = items.map((i) => i.productName).join(", ") || "your product";
+        const downloadUrl = items[0]?.fileUrl || `${(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").trim()}/orders`;
+
+        await sendDownloadLinkEmail({
+          to: user.email,
+          name: user.name || "Customer",
+          productName,
+          amountPaid: Number(updatedOrder.totalAmount),
+          currency: updatedOrder.currency || "INR",
+          downloadUrl,
+        });
+      }
+    } catch (emailErr) {
+      console.error("[verify] Failed to send confirmation email:", emailErr);
+      // Don't fail the verification if email fails
+    }
 
     return NextResponse.json({
       verified: true,

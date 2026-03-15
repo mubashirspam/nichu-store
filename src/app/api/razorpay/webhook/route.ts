@@ -6,7 +6,7 @@ import { eq, and } from "drizzle-orm";
 import { sendDownloadLinkEmail, sendPurchaseConfirmationEmail } from "@/lib/email";
 import { auth } from "@/lib/auth";
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+const BASE_URL = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000").trim();
 
 export async function POST(req: NextRequest) {
   try {

@@ -106,17 +106,19 @@ export async function sendDownloadLinkEmail({
 </html>`;
 
   if (!process.env.RESEND_API_KEY) {
-    console.warn("[email] RESEND_API_KEY not set — download URL:", downloadUrl);
-    return;
+    console.error("[email] RESEND_API_KEY not set — cannot send download email to:", to);
+    throw new Error("RESEND_API_KEY not configured");
   }
 
   const resend = getResendClient();
-  await resend.emails.send({
+  const result = await resend.emails.send({
     from: FROM,
     to,
     subject: `Your ${productName} is ready to download 🎉`,
     html,
   });
+  
+  console.log(`[email] Download email sent to ${to}:`, result);
 }
 
 /** Rich purchase confirmation email — called from webhook after payment */

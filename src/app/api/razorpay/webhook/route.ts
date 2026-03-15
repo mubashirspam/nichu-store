@@ -140,6 +140,14 @@ async function processGuestOrder({
 
   if (existingUser) {
     userId = existingUser.id;
+    
+    // Link any existing guest orders to this user account
+    const guestUserId = `guest:${email}`;
+    await db.update(orders)
+      .set({ userId })
+      .where(eq(orders.userId, guestUserId));
+    
+    console.log(`[webhook] Linked guest orders for ${email} to user ${userId}`);
   } else {
     const newId = crypto.randomUUID();
     await db.insert(authUser).values({
@@ -152,6 +160,14 @@ async function processGuestOrder({
       updatedAt: new Date(),
     });
     userId = newId;
+    
+    // Link any existing guest orders to this new user account
+    const guestUserId = `guest:${email}`;
+    await db.update(orders)
+      .set({ userId })
+      .where(eq(orders.userId, guestUserId));
+    
+    console.log(`[webhook] Created user ${userId} and linked guest orders for ${email}`);
   }
 
   // Fetch product

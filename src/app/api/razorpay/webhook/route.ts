@@ -5,7 +5,7 @@ import { orders, orderItems, pendingCheckouts, authUser, products } from "@/lib/
 import { eq, and } from "drizzle-orm";
 import { sendDownloadLinkEmail, sendPurchaseConfirmationEmail } from "@/lib/email";
 import { auth } from "@/lib/auth";
-import { encryptToken } from "@/app/api/downloads/public/route";
+import { encryptToken } from "@/lib/download-token";
 
 const BASE_URL = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000").trim();
 

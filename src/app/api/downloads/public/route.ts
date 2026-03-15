@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { orderItems, orders } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { get } from "@vercel/blob";
-import crypto from "crypto";
+import { decryptToken } from "@/lib/download-token";
 
 /**
  * Public download endpoint with secure token
@@ -81,24 +81,3 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/**
- * Encrypt orderItemId to create a secure token
- */
-export function encryptToken(orderItemId: string): string {
-  const secret = process.env.BETTER_AUTH_SECRET || process.env.NEON_AUTH_COOKIE_SECRET || "fallback-secret";
-  const cipher = crypto.createCipheriv("aes-256-cbc", Buffer.from(secret.slice(0, 32).padEnd(32, "0")), Buffer.alloc(16, 0));
-  let encrypted = cipher.update(orderItemId, "utf8", "hex");
-  encrypted += cipher.final("hex");
-  return encrypted;
-}
-
-/**
- * Decrypt token to get orderItemId
- */
-function decryptToken(token: string): string {
-  const secret = process.env.BETTER_AUTH_SECRET || process.env.NEON_AUTH_COOKIE_SECRET || "fallback-secret";
-  const decipher = crypto.createDecipheriv("aes-256-cbc", Buffer.from(secret.slice(0, 32).padEnd(32, "0")), Buffer.alloc(16, 0));
-  let decrypted = decipher.update(token, "hex", "utf8");
-  decrypted += decipher.final("utf8");
-  return decrypted;
-}

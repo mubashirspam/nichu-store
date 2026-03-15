@@ -120,7 +120,6 @@ export async function syncProfile(user: {
         fullName: user.name || null,
         avatarUrl: user.image || null,
         role: "user",
-        authProvider: "better_auth",
       })
       .onConflictDoUpdate({
         target: profiles.id,

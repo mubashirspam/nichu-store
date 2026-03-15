@@ -38,6 +38,7 @@ function CheckoutContent() {
 
   // Offer code state
   const [offerCode, setOfferCode] = useState("");
+  const [offerCodeId, setOfferCodeId] = useState("");
   const [offerDiscount, setOfferDiscount] = useState(0);
   const [offerMessage, setOfferMessage] = useState("");
   const [offerError, setOfferError] = useState("");
@@ -118,12 +119,14 @@ function CheckoutContent() {
       const data = await res.json();
 
       if (res.ok && data.valid) {
+        setOfferCodeId(data.id);
         setOfferDiscount(data.discountAmount);
         setOfferMessage(data.message);
         setOfferApplied(true);
         setOfferError("");
       } else {
         setOfferError(data.error || "Invalid code");
+        setOfferCodeId("");
         setOfferDiscount(0);
         setOfferApplied(false);
       }
@@ -136,6 +139,7 @@ function CheckoutContent() {
 
   const handleRemoveCode = () => {
     setOfferCode("");
+    setOfferCodeId("");
     setOfferDiscount(0);
     setOfferMessage("");
     setOfferError("");
@@ -153,7 +157,10 @@ function CheckoutContent() {
       const res = await fetch("/api/checkout/initiate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId: item.id }),
+        body: JSON.stringify({ 
+          productId: item.id,
+          offerCodeId: offerApplied ? offerCodeId : undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to initiate payment");

@@ -8,7 +8,7 @@ import { eq } from "drizzle-orm";
 import { sendMagicLinkEmail } from "@/lib/email";
 
 export const auth = betterAuth({
-  baseURL: process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+  baseURL: (process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").trim(),
   secret: process.env.BETTER_AUTH_SECRET || process.env.NEON_AUTH_COOKIE_SECRET,
 
   database: drizzleAdapter(db, {

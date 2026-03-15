@@ -6,7 +6,8 @@
     }
   },
   "env": {
-    "NEXT_PUBLIC_APP_URL": "https://app.marketingnizam.com"
+    "NEXT_PUBLIC_APP_URL": "https://app.marketingnizam.com",
+    "BETTER_AUTH_URL": "https://app.marketingnizam.com"
   },
   "build": {
     "env": {

@@ -60,6 +60,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       valid: true,
+      id: oc.id,
       code: oc.code,
       discountType: oc.discountType,
       discountValue,

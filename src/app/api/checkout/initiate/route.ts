@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { products } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { products, offerCodes } from "@/lib/db/schema";
+import { eq, and } from "drizzle-orm";
 import { getRazorpayClient } from "@/lib/razorpay";
 
 export async function POST(req: NextRequest) {
   try {
-    const { productId } = await req.json();
+    const { productId, offerCodeId } = await req.json();
 
     if (!productId) {
       return NextResponse.json({ error: "productId is required" }, { status: 400 });
@@ -22,7 +22,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
 
-    const amountPaise = Math.round(Number(product.price) * 100);
+    let totalAmount = Number(product.price);
+    let discountAmount = 0;
+
+    // Apply offer code if provided
+    if (offerCodeId) {
+      const [oc] = await db
+        .select()
+        .from(offerCodes)
+        .where(and(eq(offerCodes.id, offerCodeId), eq(offerCodes.isActive, true)))
+        .limit(1);
+
+      if (oc) {
+        const discountValue = Number(oc.discountValue);
+        if (oc.discountType === "percentage") {
+          discountAmount = Math.round((totalAmount * discountValue) / 100);
+        } else {
+          discountAmount = discountValue;
+        }
+        discountAmount = Math.min(discountAmount, totalAmount);
+        totalAmount = totalAmount - discountAmount;
+      }
+    }
+
+    const amountPaise = Math.round(totalAmount * 100);
 
     const razorpay = getRazorpayClient();
     const rzpOrder = await razorpay.orders.create({

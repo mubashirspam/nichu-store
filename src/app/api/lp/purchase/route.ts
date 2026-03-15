@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { products as productsTable, orders, orderItems } from "@/lib/db/schema";
+import { products as productsTable, orders, orderItems, offerCodes } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import Razorpay from "razorpay";
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, name, phone, productId, landingPageId, leadId } = await req.json();
+    const { email, name, phone, productId, landingPageId, leadId, offerCodeId } = await req.json();
 
     if (!email || !productId) {
       return NextResponse.json({ error: "Email and product ID are required" }, { status: 400 });
@@ -23,7 +23,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
 
-    const totalAmount = Number(product.price);
+    let totalAmount = Number(product.price);
+    let discountAmount = 0;
+    let offerCodeData = null;
+
+    // Apply offer code if provided
+    if (offerCodeId) {
+      const [oc] = await db
+        .select()
+        .from(offerCodes)
+        .where(and(eq(offerCodes.id, offerCodeId), eq(offerCodes.isActive, true)))
+        .limit(1);
+
+      if (oc) {
+        const discountValue = Number(oc.discountValue);
+        if (oc.discountType === "percentage") {
+          discountAmount = Math.round((totalAmount * discountValue) / 100);
+        } else {
+          discountAmount = discountValue;
+        }
+        discountAmount = Math.min(discountAmount, totalAmount);
+        totalAmount = totalAmount - discountAmount;
+        offerCodeData = { id: oc.id, code: oc.code };
+      }
+    }
+
     const orderNumber = `LP-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
 
     // Create Razorpay order
@@ -52,6 +76,8 @@ export async function POST(req: NextRequest) {
       userId: guestUserId,
       orderNumber,
       totalAmount: String(totalAmount),
+      discountAmount: String(discountAmount),
+      offerCodeId: offerCodeData?.id,
       currency: "INR",
       razorpayOrderId: razorpayOrder.id,
       status: "pending",

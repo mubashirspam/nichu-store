@@ -5,6 +5,7 @@ import { orders, orderItems, pendingCheckouts, authUser, products } from "@/lib/
 import { eq, and } from "drizzle-orm";
 import { sendDownloadLinkEmail, sendPurchaseConfirmationEmail } from "@/lib/email";
 import { auth } from "@/lib/auth";
+import { encryptToken } from "@/app/api/downloads/public/route";
 
 const BASE_URL = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000").trim();
 
@@ -189,21 +190,24 @@ async function processGuestOrder({
     })
     .returning();
 
+  let orderItemId: string | null = null;
   if (product) {
-    await db.insert(orderItems).values({
+    const [item] = await db.insert(orderItems).values({
       orderId: order.id,
       productId: product.id,
       productName: product.name,
       price: String(amountPaid),
       quantity: 1,
       fileUrl: product.fileUrl || null,
-    });
+    }).returning({ id: orderItems.id });
+    
+    orderItemId = item?.id || null;
   }
 
   // Send download link email
   try {
-    const downloadUrl = product?.fileUrl
-      ? product.fileUrl
+    const downloadUrl = orderItemId
+      ? `${BASE_URL}/api/downloads/public?token=${encryptToken(orderItemId)}`
       : `${BASE_URL}/dashboard/orders`;
 
     await sendDownloadLinkEmail({
